@@ -24,9 +24,11 @@ Flat list. No prose. These are locked — do not deviate.
 
 ## Extraction LLM
 - Default backend: Claude Haiku 3.5 (`claude-haiku-4-5-20251001`) via anthropic SDK
-- Structured output: tool_use mode (NOT JSON mode, NOT raw parsing)
-- Fallback backend: Ollama with `llama3.2:3b` (config-driven)
-- Config key: `extraction_backend` = `"anthropic"` | `"openai"` | `"ollama"`
+- Also supported: Gemini (`gemini-flash-latest`) via google-genai SDK — **verified working**
+- Also supported: OpenAI GPT-4o-mini, Ollama llama3.2:3b (local)
+- Structured output: tool_use (anthropic), tool_calls (openai), response_schema (gemini), format=json (ollama)
+- Config key: `extraction_backend` = `"anthropic"` | `"openai"` | `"gemini"` | `"ollama"`
+- Gemini model: `gemini-flash-latest` — earlier versions (gemini-2.0-flash, gemini-2.0-flash-lite) are 404 for new accounts
 
 ## Deduplication
 - Level 1 (conversation-level, pre-extraction):
@@ -81,6 +83,8 @@ Flat list. No prose. These are locked — do not deviate.
   "extraction_backend": "anthropic",
   "anthropic_api_key": "",
   "openai_api_key": "",
+  "gemini_api_key": "",
+  "gemini_model": "gemini-flash-latest",
   "ollama_model": "llama3.2:3b",
   "ollama_base_url": "http://localhost:11434",
   "extraction_on_battery": false,
@@ -94,15 +98,22 @@ Flat list. No prose. These are locked — do not deviate.
 ```
 
 ## Dependencies (pyproject.toml)
-- fastapi
-- uvicorn[standard]
-- anthropic
-- openai (optional, for openai backend)
-- sentence-transformers
-- sqlite-vec
-- typer[all]
-- httpx (for health checks)
-- pydantic >= 2.0
+Core (always installed):
+- fastapi, uvicorn[standard], anthropic, sentence-transformers, sqlite-vec, typer[all], httpx, pydantic>=2.0
+
+Optional:
+- openai>=1.50.0 (for openai backend): `pip install "osctx[openai]"`
+- google-genai>=1.0.0 (for gemini backend): `pip install "osctx[gemini]"`
+
+Dev:
+- pytest>=8.0, pytest-asyncio>=0.24, pytest-mock>=3.14
+
+## Environment
+- Virtual env: `/Users/kilroyhere/Projects/osctx/.venv`
+- Run daemon: `.venv/bin/uvicorn osctx.daemon.main:app --port 8765`
+- Run CLI: `.venv/bin/osctx <command>`
+- Run tests: `.venv/bin/pytest`
+- sqlite-vec requires `conn.enable_load_extension(True)` before `sqlite_vec.load(conn)` on Homebrew Python
 
 ## What NOT to use
 - chromadb — requires separate process
