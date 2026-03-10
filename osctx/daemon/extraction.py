@@ -6,6 +6,7 @@ Takes a raw conversation and extracts structured Knowledge Units.
 Backends:
   - anthropic (default): Claude Haiku 3.5 via tool_use for guaranteed JSON structure
   - openai: GPT-4o-mini via tool calling
+  - gemini: Gemini 2.0 Flash via google-genai SDK with JSON response schema
   - ollama: llama3.2:3b via local API (no structured output guarantee, falls back to JSON parse)
 
 Chunking:
@@ -33,6 +34,8 @@ _DEFAULT_CONFIG: dict[str, Any] = {
     "extraction_backend": "anthropic",
     "anthropic_api_key": "",
     "openai_api_key": "",
+    "gemini_api_key": "",
+    "gemini_model": "gemini-flash-latest",
     "ollama_model": "llama3.2:3b",
     "ollama_base_url": "http://localhost:11434",
 }
@@ -283,6 +286,62 @@ async def _summarize_openai(text: str, config: dict[str, Any]) -> str:
     return response.choices[0].message.content or ""
 
 
+async def _extract_gemini(
+    text: str, config: dict[str, Any]
+) -> list[ExtractedUnit]:
+    from google import genai
+    from google.genai import types
+
+    client = genai.Client(api_key=config["gemini_api_key"])
+    model = config.get("gemini_model", "gemini-flash-latest")
+
+    prompt = f"{_EXTRACTION_SYSTEM}\n\nCONVERSATION:\n\n{text}"
+
+    response = await client.aio.models.generate_content(
+        model=model,
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema={
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "content": {"type": "string"},
+                        "category": {"type": "string", "enum": ["decision", "fact", "solution", "code_pattern", "preference", "reference"]},
+                        "topic_tags": {"type": "array", "items": {"type": "string"}},
+                        "confidence": {"type": "number"},
+                        "context": {"type": "string"},
+                    },
+                    "required": ["content", "category", "topic_tags", "confidence", "context"],
+                },
+            },
+        ),
+    )
+
+    try:
+        units_raw = json.loads(response.text)
+        if not isinstance(units_raw, list):
+            units_raw = units_raw.get("units", []) if isinstance(units_raw, dict) else []
+        return [ExtractedUnit(**u) for u in units_raw if u.get("confidence", 0) >= 0.7]
+    except (json.JSONDecodeError, TypeError) as exc:
+        logger.warning("Gemini extraction parse error: %s", exc)
+        return []
+
+
+async def _summarize_gemini(text: str, config: dict[str, Any]) -> str:
+    from google import genai
+
+    client = genai.Client(api_key=config["gemini_api_key"])
+    model = config.get("gemini_model", "gemini-flash-latest")
+
+    response = await client.aio.models.generate_content(
+        model=model,
+        contents=f"{_SUMMARY_SYSTEM}\n\n{_SUMMARY_PROMPT}\n\n{text}",
+    )
+    return response.text or ""
+
+
 async def _extract_ollama(
     text: str, config: dict[str, Any]
 ) -> list[ExtractedUnit]:
@@ -369,6 +428,9 @@ async def extract_from_messages(
     elif backend == "openai":
         extract_fn = _extract_openai
         summarize_fn = _summarize_openai
+    elif backend == "gemini":
+        extract_fn = _extract_gemini
+        summarize_fn = _summarize_gemini
     elif backend == "ollama":
         extract_fn = _extract_ollama
         summarize_fn = _summarize_ollama
