@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OSCTX — Search Memory</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f0f10;
+      color: #e8e8e8;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+      gap: 16px;
+    }
+
+    #header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #header h1 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #888;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    #search-container {
+      position: relative;
+    }
+
+    #q {
+      width: 100%;
+      padding: 12px 16px;
+      font-size: 16px;
+      background: #1a1a1d;
+      border: 1px solid #2d2d30;
+      border-radius: 8px;
+      color: #e8e8e8;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    #q:focus { border-color: #5b8af5; }
+    #q::placeholder { color: #555; }
+
+    #status {
+      font-size: 12px;
+      color: #555;
+      height: 16px;
+    }
+
+    #results {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .result {
+      background: #1a1a1d;
+      border: 1px solid #2d2d30;
+      border-radius: 8px;
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: border-color 0.12s, background 0.12s;
+      outline: none;
+    }
+
+    .result:hover,
+    .result.focused {
+      border-color: #5b8af5;
+      background: #1e1e24;
+    }
+
+    .result-content {
+      font-size: 14px;
+      line-height: 1.5;
+      color: #e8e8e8;
+      margin-bottom: 6px;
+      white-space: pre-wrap;
+    }
+
+    .result-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+
+    .badge-source {
+      background: #2d3a5e;
+      color: #7aa2f7;
+    }
+
+    .badge-category {
+      background: #2d3a2d;
+      color: #73c991;
+    }
+
+    .meta-text {
+      font-size: 11px;
+      color: #666;
+    }
+
+    .confidence {
+      font-size: 11px;
+      color: #888;
+      margin-left: auto;
+    }
+
+    .result-context {
+      margin-top: 6px;
+      font-size: 12px;
+      color: #666;
+      font-style: italic;
+    }
+
+    #copied-toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #5b8af5;
+      color: white;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.2s, transform 0.2s;
+      pointer-events: none;
+    }
+
+    #copied-toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .empty {
+      color: #555;
+      font-size: 14px;
+      text-align: center;
+      margin-top: 40px;
+    }
+
+    /* Tags */
+    .tag {
+      font-size: 10px;
+      background: #222;
+      border: 1px solid #333;
+      border-radius: 3px;
+      padding: 1px 5px;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+
+<div id="header">
+  <h1>OSCTX · Search Memory</h1>
+</div>
+
+<div id="search-container">
+  <input
+    type="text"
+    id="q"
+    placeholder="Search your AI conversation history…"
+    autocomplete="off"
+    autofocus
+  >
+</div>
+
+<div id="status"></div>
+
+<div id="results"></div>
+
+<div id="copied-toast">Context copied to clipboard</div>
+
+<script>
+  const input = document.getElementById('q');
+  const resultsEl = document.getElementById('results');
+  const statusEl = document.getElementById('status');
+  const toast = document.getElementById('copied-toast');
+
+  let debounceTimer = null;
+  let currentResults = [];
+  let focusedIndex = -1;
+
+  input.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => doSearch(input.value.trim()), 300);
+  });
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      moveFocus(1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      moveFocus(-1);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (focusedIndex >= 0 && focusedIndex < currentResults.length) {
+        copyResult(currentResults[focusedIndex]);
+      } else if (currentResults.length > 0) {
+        copyResult(currentResults[0]);
+      }
+    } else if (e.key === 'Escape') {
+      input.value = '';
+      clearResults();
+    }
+  });
+
+  function moveFocus(delta) {
+    const items = resultsEl.querySelectorAll('.result');
+    if (!items.length) return;
+    items[focusedIndex]?.classList.remove('focused');
+    focusedIndex = Math.max(0, Math.min(items.length - 1, focusedIndex + delta));
+    items[focusedIndex]?.classList.add('focused');
+    items[focusedIndex]?.scrollIntoView({ block: 'nearest' });
+  }
+
+  async function doSearch(q) {
+    if (!q) { clearResults(); return; }
+
+    statusEl.textContent = 'Searching…';
+    try {
+      const resp = await fetch(`/search?q=${encodeURIComponent(q)}&limit=8`);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      currentResults = data.results || [];
+      focusedIndex = -1;
+      renderResults(currentResults);
+      statusEl.textContent = currentResults.length
+        ? `${currentResults.length} result${currentResults.length !== 1 ? 's' : ''}`
+        : '';
+    } catch (err) {
+      statusEl.textContent = 'Daemon not reachable — is osctx running?';
+      resultsEl.innerHTML = '<p class="empty">Could not connect to daemon on localhost:8765</p>';
+      currentResults = [];
+    }
+  }
+
+  function renderResults(results) {
+    if (!results.length) {
+      resultsEl.innerHTML = '<p class="empty">No results found</p>';
+      return;
+    }
+
+    resultsEl.innerHTML = results.map((r, i) => {
+      const tags = (r.topic_tags || []).map(t => `<span class="tag">${esc(t)}</span>`).join(' ');
+      const score = r.similarity_score ? Math.round(r.similarity_score * 100) + '%' : '';
+      const date = r.source_date || '';
+      return `
+        <div class="result" tabindex="0" data-index="${i}" onclick="copyResult(currentResults[${i}])">
+          <div class="result-content">${esc(r.content)}</div>
+          <div class="result-meta">
+            <span class="badge badge-source">${esc(r.source || '')}</span>
+            ${r.category ? `<span class="badge badge-category">${esc(r.category)}</span>` : ''}
+            ${date ? `<span class="meta-text">${esc(date)}</span>` : ''}
+            ${tags}
+            ${score ? `<span class="confidence">${score}</span>` : ''}
+          </div>
+          ${r.context ? `<div class="result-context">${esc(r.context)}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+  }
+
+  function clearResults() {
+    resultsEl.innerHTML = '';
+    statusEl.textContent = '';
+    currentResults = [];
+    focusedIndex = -1;
+  }
+
+  async function copyResult(result) {
+    if (!result) return;
+    const tags = (result.topic_tags || []).join(', ');
+    const date = result.source_date || 'unknown';
+    const source = (result.source || 'AI').charAt(0).toUpperCase() + (result.source || 'AI').slice(1);
+
+    let text = `<context source="${source}" date="${date}" topic="${tags}">\n${result.content}`;
+    if (result.context) text += `\n${result.context}`;
+    text += '\n</context>';
+
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast();
+    } catch {
+      // Fallback: select a textarea
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast();
+    }
+  }
+
+  function showToast() {
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2000);
+  }
+
+  function esc(s) {
+    if (!s) return '';
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // Focus input on load
+  window.addEventListener('load', () => input.focus());
+</script>
+</body>
+</html>
