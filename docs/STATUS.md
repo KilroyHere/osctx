@@ -95,8 +95,8 @@ Last updated: 2026-03-10
 
 ## Environment
 
-- Python: 3.13 (via Homebrew, in `.venv`)
-- Virtual env: `/Users/kilroyhere/Projects/osctx/.venv`
+- Python: 3.11+ (tested on 3.13 via Homebrew)
+- Virtual env: `.venv/` (in project root)
 - Run daemon: `.venv/bin/uvicorn osctx.daemon.main:app --port 8765`
 - Run CLI: `.venv/bin/osctx <command>`
 - Run tests: `.venv/bin/pytest`

@@ -109,7 +109,7 @@ Dev:
 - pytest>=8.0, pytest-asyncio>=0.24, pytest-mock>=3.14
 
 ## Environment
-- Virtual env: `/Users/kilroyhere/Projects/osctx/.venv`
+- Virtual env: `.venv/` (in project root)
 - Run daemon: `.venv/bin/uvicorn osctx.daemon.main:app --port 8765`
 - Run CLI: `.venv/bin/osctx <command>`
 - Run tests: `.venv/bin/pytest`

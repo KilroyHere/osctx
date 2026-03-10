@@ -385,7 +385,7 @@ if __name__ == "__main__":
 {
   "mcpServers": {
     "osctx": {
-      "command": "/Users/kilroyhere/Projects/osctx/.venv/bin/python",
+      "command": "/path/to/osctx/.venv/bin/python",
       "args": ["-m", "osctx.mcp_server.server"],
       "env": {}
     }

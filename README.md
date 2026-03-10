@@ -176,10 +176,10 @@ Full config schema:
 
 ```json
 {
-  "extraction_backend": "gemini",
+  "extraction_backend": "anthropic",
+  "anthropic_api_key": "",
   "gemini_api_key": "",
   "gemini_model": "gemini-flash-latest",
-  "anthropic_api_key": "",
   "openai_api_key": "",
   "ollama_model": "llama3.2:3b",
   "ollama_base_url": "http://localhost:11434",
@@ -204,11 +204,11 @@ osctx doctor              # check environment
 
 Key docs for contributors:
 
-- [`INTERFACES.md`](INTERFACES.md) — exact public API of every module
-- [`CONSTRAINTS.md`](CONSTRAINTS.md) — hard rules (import graph, test rules, selector rules)
-- [`DECISIONS.md`](DECISIONS.md) — tech stack decisions, locked
-- [`NEXT.md`](NEXT.md) — prioritized next tasks with implementation detail
-- [`STATUS.md`](STATUS.md) — what's built, what's not, known issues
+- [`docs/INTERFACES.md`](docs/INTERFACES.md) — exact public API of every module
+- [`docs/CONSTRAINTS.md`](docs/CONSTRAINTS.md) — hard rules (import graph, test rules, selector rules)
+- [`docs/DECISIONS.md`](docs/DECISIONS.md) — tech stack decisions, locked
+- [`docs/NEXT.md`](docs/NEXT.md) — prioritized next tasks with implementation detail
+- [`docs/STATUS.md`](docs/STATUS.md) — what's built, what's not, known issues
 
 **Note for Homebrew Python users:** sqlite-vec requires `conn.enable_load_extension(True)` before loading. This is already handled in `database.py` but worth knowing if you see `not authorized` errors.
 
