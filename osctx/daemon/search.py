@@ -35,19 +35,29 @@ class SearchResult:
     similarity_score: float
     context: str | None
     conversation_id: str | None
+    conversation_summary: str | None = None  # Full conversation summary
 
     def to_paste(self) -> str:
-        """Format as XML-wrapped context for pasting into AI chat."""
+        """Format as XML-wrapped context for pasting into AI chat.
+
+        If a conversation summary is available, it is included as background
+        context before the specific matched knowledge unit.
+        """
         tags_str = ", ".join(self.topic_tags) if self.topic_tags else ""
         date_str = self.source_date or "unknown"
         source_str = self.source.capitalize()
 
-        lines = [
-            f'<context source="{source_str}" date="{date_str}" topic="{tags_str}">',
-            self.content,
-        ]
+        lines = [f'<context source="{source_str}" date="{date_str}" topic="{tags_str}">']
+
+        if self.conversation_summary:
+            lines.append("## Conversation Summary")
+            lines.append(self.conversation_summary)
+            lines.append("")
+            lines.append("## Matched Knowledge")
+
+        lines.append(self.content)
         if self.context:
-            lines.append(self.context)
+            lines.append(f"Context: {self.context}")
         lines.append("</context>")
         return "\n".join(lines)
 
@@ -64,6 +74,7 @@ class SearchResult:
             "similarity_score": round(self.similarity_score, 4),
             "context": self.context,
             "conversation_id": self.conversation_id,
+            "conversation_summary": self.conversation_summary,
         }
 
 
@@ -113,6 +124,7 @@ def search(
                 ku.context,
                 ku.conversation_id,
                 c.url as source_url,
+                c.summary as conversation_summary,
                 vec_distance_cosine(ke.embedding, ?) as distance
             FROM knowledge_units ku
             JOIN knowledge_embeddings ke ON ke.unit_id = ku.id
@@ -148,6 +160,7 @@ def search(
             similarity_score=similarity,
             context=row["context"],
             conversation_id=row["conversation_id"],
+            conversation_summary=row["conversation_summary"],
         ))
 
         if len(results) >= limit:

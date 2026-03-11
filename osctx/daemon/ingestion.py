@@ -28,6 +28,7 @@ from .database import (
     insert_embedding,
     insert_knowledge_unit,
     set_conversation_status,
+    update_conversation_summary,
     upsert_conversation,
 )
 from .dedup import (
@@ -38,7 +39,7 @@ from .dedup import (
     update_conversation_state,
 )
 from .embeddings import encode_batch, encode_passage
-from .extraction import extract_from_messages
+from .extraction import extract_from_messages, summarize_conversation
 
 logger = logging.getLogger(__name__)
 
@@ -222,6 +223,13 @@ async def _process_item(item: dict[str, Any], config: dict[str, Any]) -> None:
         # Extract knowledge units from delta messages only
         units = await extract_from_messages(delta_messages, config=config)
         logger.info("Extracted %d units from conv %s", len(units), conv_id[:8])
+
+        # Generate and store conversation summary from full messages
+        summary = await summarize_conversation(messages, config=config)
+        if summary:
+            with get_conn(db_path) as conn:
+                update_conversation_summary(conn, conv_id, summary)
+            logger.info("Stored summary for conv %s", conv_id[:8])
 
         # Embed all units in one batch
         if units:

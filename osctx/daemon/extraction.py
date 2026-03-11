@@ -101,6 +101,15 @@ _SUMMARY_PROMPT = (
     "in 2-3 sentences. Focus on facts and decisions, not the conversational process."
 )
 
+_CONV_SUMMARY_PROMPT = (
+    "Write a 2-3 paragraph summary of this entire conversation that captures: "
+    "(1) the core topic and what was being figured out, "
+    "(2) the key conclusions, decisions, or solutions reached, "
+    "(3) any important nuances, tradeoffs, or caveats that were established. "
+    "Write it so someone reading it cold can immediately understand the full context "
+    "and pick up where this conversation left off. Be specific, not vague."
+)
+
 
 # ---------------------------------------------------------------------------
 # Data types
@@ -462,5 +471,49 @@ async def extract_from_messages(
         if key not in seen:
             seen.add(key)
             unique.append(unit)
+
+    return unique
+
+
+async def summarize_conversation(
+    messages: list[dict],
+    config: dict[str, Any] | None = None,
+) -> str:
+    """Generate a rich 2-3 paragraph summary of an entire conversation.
+
+    Truncates to 12000 chars if needed to stay within LLM context limits.
+    Returns empty string on failure (never raises).
+    """
+    if not messages:
+        return ""
+
+    cfg = {**_DEFAULT_CONFIG, **(config or {})}
+    backend = cfg.get("extraction_backend", "anthropic")
+
+    if backend == "anthropic":
+        summarize_fn = _summarize_anthropic
+    elif backend == "openai":
+        summarize_fn = _summarize_openai
+    elif backend == "gemini":
+        summarize_fn = _summarize_gemini
+    elif backend == "ollama":
+        summarize_fn = _summarize_ollama
+    else:
+        return ""
+
+    # Build full conversation text, truncated to stay within context
+    full_text = _format_messages(messages)
+    if len(full_text) > 12_000:
+        # Keep first third + last two thirds — lose middle filler, keep conclusion
+        third = 4_000
+        full_text = full_text[:third] + "\n\n[...middle truncated...]\n\n" + full_text[-8_000:]
+
+    try:
+        return await summarize_fn(
+            f"{_CONV_SUMMARY_PROMPT}\n\nCONVERSATION:\n\n{full_text}", cfg
+        )
+    except Exception as exc:
+        logger.warning("Conversation summary failed: %s", exc)
+        return ""
 
     return unique

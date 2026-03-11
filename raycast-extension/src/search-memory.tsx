@@ -30,6 +30,7 @@ interface SearchResult {
   similarity_score: number;
   context: string | null;
   conversation_id: string | null;
+  conversation_summary: string | null;
 }
 
 interface SearchResponse {
@@ -66,7 +67,11 @@ function toPasteFormat(r: SearchResult): string {
 
 function ResultDetail({ result }: { result: SearchResult }) {
   const markdown = [
-    `## ${result.content}`,
+    result.conversation_summary ? "## Conversation Summary" : "",
+    result.conversation_summary ?? "",
+    result.conversation_summary ? "\n---\n" : "",
+    `## Matched Knowledge`,
+    `**[${result.category ?? "fact"}]** ${result.content}`,
     "",
     result.context ? `*${result.context}*` : "",
     "",

@@ -40,7 +40,8 @@ CREATE TABLE IF NOT EXISTS conversations (
     captured_at INTEGER NOT NULL,
     raw_json    TEXT NOT NULL,
     status      TEXT NOT NULL DEFAULT 'pending'
-        CHECK(status IN ('pending', 'processing', 'done', 'failed'))
+        CHECK(status IN ('pending', 'processing', 'done', 'failed')),
+    summary     TEXT
 );
 
 CREATE TABLE IF NOT EXISTS knowledge_units (
@@ -107,6 +108,11 @@ def init_db(db_path: Path = DB_PATH) -> None:
     with _connect(db_path) as conn:
         conn.executescript(_SCHEMA)
         conn.executescript(_EMBEDDINGS_TABLE)
+        # Migrations for existing databases
+        try:
+            conn.execute("ALTER TABLE conversations ADD COLUMN summary TEXT")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
         conn.commit()
 
 
@@ -167,6 +173,15 @@ def set_conversation_status(
 ) -> None:
     conn.execute(
         "UPDATE conversations SET status = ? WHERE id = ?", (status, conv_id)
+    )
+
+
+def update_conversation_summary(
+    conn: sqlite3.Connection, conv_id: str, summary: str
+) -> None:
+    """Store the LLM-generated summary for a conversation."""
+    conn.execute(
+        "UPDATE conversations SET summary = ? WHERE id = ?", (summary, conv_id)
     )
 
 
