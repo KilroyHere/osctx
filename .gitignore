@@ -1,1 +1,12 @@
-*pycache*
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Extension
+extension/node_modules/
+extension/dist/
+extension/dist.crx
+extension/dist.pem

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OSCTX</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 240px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 13px;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      padding: 12px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    header h1 {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: #fff;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #555;
+      flex-shrink: 0;
+    }
+    .status-dot.online { background: #4caf50; }
+    .status-dot.offline { background: #ef5350; }
+
+    .status-label {
+      font-size: 11px;
+      color: #888;
+      margin-bottom: 10px;
+    }
+
+    .stats {
+      background: #252525;
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-bottom: 10px;
+      display: none;
+    }
+    .stats.visible { display: block; }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      color: #999;
+      margin-bottom: 3px;
+    }
+    .stat-row:last-child { margin-bottom: 0; }
+    .stat-row span:last-child { color: #e0e0e0; font-weight: 500; }
+
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    button, a.btn {
+      display: block;
+      width: 100%;
+      padding: 7px 10px;
+      border-radius: 5px;
+      border: none;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      text-align: center;
+      text-decoration: none;
+      transition: opacity 0.15s;
+    }
+    button:hover, a.btn:hover { opacity: 0.85; }
+
+    #btn-save {
+      background: #3b82f6;
+      color: #fff;
+    }
+    #btn-save:disabled {
+      background: #2a4a7f;
+      color: #666;
+      cursor: not-allowed;
+    }
+
+    a.btn {
+      background: #2a2a2a;
+      color: #bbb;
+      border: 1px solid #333;
+    }
+
+    #msg {
+      font-size: 11px;
+      color: #4caf50;
+      text-align: center;
+      min-height: 16px;
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="status-dot" id="dot"></div>
+    <h1>OSCTX</h1>
+  </header>
+
+  <div class="status-label" id="status-label">Checking daemon…</div>
+
+  <div class="stats" id="stats">
+    <div class="stat-row"><span>Knowledge units</span><span id="stat-units">—</span></div>
+    <div class="stat-row"><span>Conversations</span><span id="stat-convs">—</span></div>
+    <div class="stat-row"><span>Pending</span><span id="stat-pending">—</span></div>
+  </div>
+
+  <div class="actions">
+    <button id="btn-save">Save Current Chat</button>
+    <a class="btn" id="btn-search" href="#" target="_blank">Open Search UI ↗</a>
+  </div>
+
+  <div id="msg"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

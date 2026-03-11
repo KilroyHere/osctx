@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "OSCTX",
+  "version": "0.1.0",
+  "description": "Capture AI conversations and make them searchable.",
+  "permissions": ["activeTab", "storage", "tabs"],
+  "host_permissions": [
+    "https://chat.openai.com/*",
+    "https://chatgpt.com/*",
+    "https://claude.ai/*",
+    "https://gemini.google.com/*",
+    "http://localhost/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://chat.openai.com/*", "https://chatgpt.com/*"],
+      "js": ["content/chatgpt.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://claude.ai/*"],
+      "js": ["content/claude.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://gemini.google.com/*"],
+      "js": ["content/gemini.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "OSCTX"
+  },
+  "commands": {
+    "save-chat": {
+      "suggested_key": { "mac": "Command+Shift+S", "default": "Ctrl+Shift+S" },
+      "description": "Save current chat to OSCTX"
+    },
+    "open-search": {
+      "suggested_key": { "mac": "Command+Shift+M", "default": "Ctrl+Shift+M" },
+      "description": "Open OSCTX search UI"
+    }
+  }
+}
