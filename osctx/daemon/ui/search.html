@@ -439,15 +439,9 @@
   // ── Browse (all units) ──
   async function loadBrowse() {
     try {
-      // Use search with empty-ish query to get recent units; fall back to status
-      // We'll fetch via a broad search or the status endpoint categories
-      // Actually load recent: search with a space which returns by recency
-      const resp = await fetch('/search?q=the+a+of&limit=200&hybrid=true');
+      const resp = await fetch('/units?limit=500');
       const data = await resp.json();
-      browseItems = data.results || [];
-      // deduplicate
-      const seen = new Set();
-      browseItems = browseItems.filter(r => { if (seen.has(r.id)) return false; seen.add(r.id); return true; });
+      browseItems = data.units || [];
     } catch { browseItems = []; }
   }
 
@@ -472,7 +466,16 @@
     statusBar.textContent = filtered.length ? `${filtered.length} result${filtered.length !== 1 ? 's' : ''}` : 'No results';
   }
 
-  function renderBrowse() {
+  async function renderBrowse() {
+    // Reload from API with active filters for accurate results
+    try {
+      let url = '/units?limit=500';
+      if (filterCat) url += `&category=${encodeURIComponent(filterCat)}`;
+      if (filterSrc) url += `&source=${encodeURIComponent(filterSrc)}`;
+      const resp = await fetch(url);
+      const data = await resp.json();
+      browseItems = data.units || [];
+    } catch { /* use cached */ }
     const filtered = applyFilters(browseItems);
     if (!filtered.length) {
       content.innerHTML = '<div class="empty">No items match the current filter</div>';

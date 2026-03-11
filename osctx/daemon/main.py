@@ -199,6 +199,37 @@ async def status() -> JSONResponse:
     return JSONResponse(content=stats)
 
 
+@app.get("/units")
+async def units(
+    category: str | None = None,
+    source: str | None = None,
+    limit: int = 500,
+) -> JSONResponse:
+    """Return all knowledge units, optionally filtered by category and/or source."""
+    with get_conn() as conn:
+        query = "SELECT * FROM knowledge_units WHERE 1=1"
+        params: list = []
+        if category:
+            query += " AND category = ?"
+            params.append(category)
+        if source:
+            query += " AND source LIKE ?"
+            params.append(f"%{source}%")
+        query += " ORDER BY created_at DESC LIMIT ?"
+        params.append(limit)
+        rows = conn.execute(query, params).fetchall()
+    import json as _json
+    results = []
+    for r in rows:
+        d = dict(r)
+        try:
+            d["topic_tags"] = _json.loads(d.get("topic_tags") or "[]")
+        except Exception:
+            pass
+        results.append(d)
+    return JSONResponse(content={"units": results, "total": len(results)})
+
+
 @app.get("/ui", response_class=HTMLResponse)
 async def ui() -> HTMLResponse:
     """Serve the minimal search UI."""

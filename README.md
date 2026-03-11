@@ -39,24 +39,6 @@ Low-confidence units (< 0.7) are discarded. Near-duplicates (cosine similarity >
 
 ---
 
-## Current Status
-
-| Component | Status |
-|---|---|
-| FastAPI daemon (6 endpoints) | ✅ Done |
-| ChatGPT + Gemini export parsers | ✅ Done |
-| LLM extraction (Anthropic / Gemini / OpenAI / Ollama) | ✅ Done |
-| Conversation summaries (2–3 paragraphs, per-conversation) | ✅ Done |
-| Semantic + hybrid (BM25+vector) search | ✅ Done |
-| Two-level deduplication | ✅ Done |
-| CLI (`import`, `search`, `status`, `logs`, `config`, `install`, `doctor`) | ✅ Done |
-| Browser UI at `localhost:8765/ui` (search + browse + multi-select) | ✅ Done |
-| Browser extension (Chrome — ChatGPT, Claude.ai, Gemini) | ✅ Done |
-| Raycast extension (search, detail view, multi-select copy) | ✅ Done |
-| MCP server for Claude Desktop (search, save, ingest conversation) | ✅ Done |
-
----
-
 ## Quick Setup (fresh clone)
 
 ### 1 — Python environment
@@ -94,9 +76,18 @@ osctx doctor        # dependency check
 
 ### 4 — Browser extension (Chrome)
 
-1. Open `chrome://extensions`, enable **Developer mode**
-2. Click **Load unpacked** → select the `extension/` folder
-3. Pin the extension. Click it on any ChatGPT/Claude/Gemini page to capture.
+1. Open Chrome → navigate to `chrome://extensions`
+2. Toggle **Developer mode** on (top-right switch)
+3. Click **Load unpacked** → select the `extension/` folder from this repo
+4. The OSCTX icon appears in your toolbar. Click **Pin** to keep it visible.
+
+**Usage:**
+- Navigate to any ChatGPT, Claude.ai, or Gemini conversation
+- Click the extension icon → click **Capture** to send the conversation to the daemon
+- Or press `Cmd+Shift+S` anywhere on the page
+- The extension also auto-captures on tab close after 5+ messages
+
+The daemon must be running (step 3) to receive captures. If offline, captures are buffered and retried.
 
 ### 5 — Raycast extension (optional)
 
