@@ -261,7 +261,7 @@ def _hybrid_search_impl(
         placeholders = ",".join("?" * len(top_ids))
         rows = conn.execute(
             f"""
-            SELECT ku.*, c.url as source_url
+            SELECT ku.*, c.url as source_url, c.summary as conversation_summary
             FROM knowledge_units ku
             LEFT JOIN conversations c ON c.id = ku.conversation_id
             WHERE ku.id IN ({placeholders})
@@ -288,6 +288,7 @@ def _hybrid_search_impl(
             similarity_score=rrf_score,
             context=row["context"],
             conversation_id=row["conversation_id"],
+            conversation_summary=row["conversation_summary"],
         ))
 
     return results

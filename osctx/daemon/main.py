@@ -144,7 +144,6 @@ app.mount("/static", StaticFiles(directory=str(_UI_DIR)), name="static")
 @app.post("/ingest")
 async def ingest(req: IngestRequest) -> JSONResponse:
     """Receive a raw chat dump from the browser extension or CLI."""
-    config = app.state.config
     result = enqueue_ingest(req, db_path=DB_PATH)
     status_code = 202 if result["status"] == "queued" else 200
     return JSONResponse(content=result, status_code=status_code)
@@ -209,7 +208,7 @@ async def units(
     limit: int = 500,
 ) -> JSONResponse:
     """Return all knowledge units, optionally filtered by category and/or source."""
-    with get_conn() as conn:
+    with get_conn(DB_PATH) as conn:
         query = "SELECT * FROM knowledge_units WHERE 1=1"
         params: list = []
         if category:

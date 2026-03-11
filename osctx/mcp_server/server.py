@@ -23,12 +23,14 @@ import httpx
 from mcp.server.fastmcp import FastMCP
 
 from osctx.daemon.database import (
+    DB_PATH,
     content_hash_exists,
     get_conn,
     insert_embedding,
     insert_knowledge_unit,
     record_content_hash,
 )
+from osctx.daemon.dedup import check_unit_dedup
 from osctx.daemon.embeddings import encode_passage
 from osctx.daemon.search import search
 
@@ -53,7 +55,7 @@ async def get_by_topic(topic: str) -> list[dict]:
     """Retrieve all saved knowledge units tagged with a specific topic from the
     user's personal memory. Use when the user asks about a specific subject area
     or tag (e.g. 'show me everything about postgres', 'what do I know about auth')."""
-    with get_conn() as conn:
+    with get_conn(DB_PATH) as conn:
         rows = conn.execute(
             "SELECT * FROM knowledge_units WHERE topic_tags LIKE ? ORDER BY created_at DESC",
             (f'%"{topic}"%',),
@@ -66,10 +68,13 @@ async def save_insight(content: str, topic: str) -> str:
     """Save a single insight, fact, or decision into the user's personal memory.
     Use when the user says 'remember this', 'save this', 'note that', or when
     an important decision or preference is established mid-conversation."""
-    with get_conn() as conn:
+    embedding = encode_passage(content)
+    with get_conn(DB_PATH) as conn:
         if content_hash_exists(conn, content):
             return "Already stored."
-        embedding = encode_passage(content)
+        decision = check_unit_dedup(conn, content, embedding)
+        if decision.action == "skip":
+            return "Already stored (near-duplicate)."
         unit_id = insert_knowledge_unit(
             conn,
             conversation_id=None,
@@ -79,6 +84,7 @@ async def save_insight(content: str, topic: str) -> str:
             source="claude_desktop",
             source_date=int(time.time()),
             confidence=1.0,
+            similar_to_id=decision.similar_to_id,
         )
         insert_embedding(conn, unit_id, embedding)
         record_content_hash(conn, content, unit_id)
