@@ -1,6 +1,15 @@
 {
-  "extends": "@raycast/tsconfig",
   "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "lib": ["ES2022"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
     "paths": {
       "@/*": ["./src/*"]
     }

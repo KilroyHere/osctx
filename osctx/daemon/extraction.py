@@ -60,6 +60,14 @@ DO NOT EXTRACT:
 - Information the user already clearly knew (they stated it as fact, not asked)
 - Anything with confidence below 0.7
 
+CONTENT QUALITY RULES:
+- Write content as 1-3 complete sentences, NOT a single bare headline
+- For decisions and solutions, include the reasoning: what was decided AND why (because/since/so that)
+- For facts and code patterns, include enough detail that the unit is self-contained without reading the original conversation
+- Include any important constraints, caveats, or tradeoffs that were established
+- Bad: "Use PostgreSQL" — Good: "Chose PostgreSQL over MySQL because native JSONB indexing was required for the metadata schema; MySQL's JSON support lacked the index types needed for query performance."
+- Bad: "Prefer UUIDs" — Good: "Use UUIDs (not auto-increment integers) for all user-facing IDs to enable sharding, avoid exposing row counts, and ensure cross-database uniqueness without coordination."
+
 Return ONLY a JSON array. If nothing is worth extracting, return [].
 Each item must have: content, category, topic_tags, confidence, context."""
 
@@ -75,7 +83,10 @@ _EXTRACTION_TOOL = {
                     "type": "object",
                     "required": ["content", "category", "topic_tags", "confidence", "context"],
                     "properties": {
-                        "content": {"type": "string"},
+                        "content": {
+                            "type": "string",
+                            "description": "1-3 sentences capturing the knowledge unit. Must include reasoning (why, because, tradeoffs) for decisions and solutions. Self-contained — readable without the original conversation.",
+                        },
                         "category": {
                             "type": "string",
                             "enum": ["decision", "fact", "solution", "code_pattern", "preference", "reference"],

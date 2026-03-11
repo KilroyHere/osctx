@@ -49,7 +49,7 @@ const CATEGORY_COLORS: Record<string, Color> = {
 
 const CATEGORY_ICONS: Record<string, Icon> = {
   decision: Icon.BulletPoints,
-  fact: Icon.Lightbulb,
+  fact: Icon.LightBulb,
   solution: Icon.Checkmark,
   code_pattern: Icon.Code,
   preference: Icon.Star,
@@ -70,6 +70,17 @@ function toPasteFormat(r: SearchResult): string {
   if (r.context) lines.push(`Context: ${r.context}`);
   lines.push("</context>");
   return lines.join("\n");
+}
+
+function toPasteFormatMulti(results: SearchResult[]): string {
+  // Deduplicate by id, preserve order
+  const seen = new Set<string>();
+  const unique = results.filter((r) => {
+    if (seen.has(r.id)) return false;
+    seen.add(r.id);
+    return true;
+  });
+  return unique.map(toPasteFormat).join("\n\n");
 }
 
 function ResultDetail({ result }: { result: SearchResult }) {
@@ -139,7 +150,7 @@ function ResultDetail({ result }: { result: SearchResult }) {
             />
           </ActionPanel.Section>
           <ActionPanel.Section>
-            <ResultActions result={result} />
+            <ResultActions result={result} selectedIds={new Set()} onToggleSelect={() => {}} />
           </ActionPanel.Section>
         </ActionPanel>
       }
@@ -147,7 +158,16 @@ function ResultDetail({ result }: { result: SearchResult }) {
   );
 }
 
-function ResultActions({ result }: { result: SearchResult }) {
+function ResultActions({
+  result,
+  selectedIds,
+  onToggleSelect,
+}: {
+  result: SearchResult;
+  selectedIds: Set<string>;
+  onToggleSelect: (id: string) => void;
+}) {
+  const isSelected = selectedIds.has(result.id);
   return (
     <>
       <Action.Push
@@ -164,6 +184,12 @@ function ResultActions({ result }: { result: SearchResult }) {
           await Clipboard.copy(toPasteFormat(result));
           await showHUD("Context copied ✓");
         }}
+      />
+      <Action
+        title={isSelected ? "Deselect" : "Select for Multi-Copy"}
+        icon={isSelected ? Icon.XMarkCircle : Icon.PlusCircle}
+        shortcut={{ modifiers: ["cmd"], key: "d" }}
+        onAction={() => onToggleSelect(result.id)}
       />
       <Action
         title="Copy Content Only"
@@ -188,6 +214,7 @@ function ResultActions({ result }: { result: SearchResult }) {
 export default function SearchMemory() {
   const { daemonUrl } = getPreferenceValues<Preferences>();
   const [query, setQuery] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const url = query.trim()
     ? `${daemonUrl}/search?q=${encodeURIComponent(query)}&limit=10`
@@ -207,11 +234,36 @@ export default function SearchMemory() {
 
   const results = data?.results ?? [];
 
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function copySelected() {
+    const items = results.filter((r) => selectedIds.has(r.id));
+    if (items.length === 0) return;
+    await Clipboard.copy(toPasteFormatMulti(items));
+    await showHUD(`Copied ${items.length} context block${items.length > 1 ? "s" : ""} ✓`);
+    setSelectedIds(new Set());
+  }
+
+  const selectedCount = selectedIds.size;
+  const searchBarTitle = selectedCount > 0 ? `Search Memory — ${selectedCount} selected` : undefined;
+
   return (
     <List
       isLoading={isLoading}
-      onSearchTextChange={setQuery}
+      onSearchTextChange={(text) => {
+        setQuery(text);
+        // Clear selection when query changes
+        if (text !== query) setSelectedIds(new Set());
+      }}
       searchBarPlaceholder="Search your AI conversation memory…"
+      navigationTitle={searchBarTitle}
       throttle
     >
       {!query.trim() && (
@@ -238,25 +290,65 @@ export default function SearchMemory() {
         />
       )}
 
+      {/* Multi-select action bar — only shown when items are selected */}
+      {selectedCount > 0 && (
+        <List.Section title={`${selectedCount} selected — press ⌘⏎ on any item, or use Copy Selected below`}>
+          <List.Item
+            icon={{ source: Icon.Clipboard, tintColor: Color.Blue }}
+            title={`Copy ${selectedCount} Selected Context Block${selectedCount > 1 ? "s" : ""}`}
+            subtitle="Pastes all selected items as separate <context> blocks"
+            actions={
+              <ActionPanel>
+                <Action
+                  title={`Copy ${selectedCount} Selected`}
+                  icon={Icon.Clipboard}
+                  shortcut={{ modifiers: [], key: "return" }}
+                  onAction={copySelected}
+                />
+                <Action
+                  title="Clear Selection"
+                  icon={Icon.XMarkCircle}
+                  shortcut={{ modifiers: ["cmd"], key: "escape" }}
+                  onAction={() => setSelectedIds(new Set())}
+                />
+              </ActionPanel>
+            }
+          />
+        </List.Section>
+      )}
+
       <List.Section title={results.length > 0 ? `${results.length} results` : ""}>
         {results.map((r) => {
           const category = r.category ?? "fact";
           const score = Math.round(r.similarity_score * 100);
           const tags = r.topic_tags.slice(0, 3).join(", ");
+          const isSelected = selectedIds.has(r.id);
 
           return (
             <List.Item
               key={r.id}
-              icon={{ source: CATEGORY_ICONS[category] ?? Icon.Dot, tintColor: CATEGORY_COLORS[category] }}
+              icon={
+                isSelected
+                  ? { source: Icon.Checkmark, tintColor: Color.Blue }
+                  : { source: CATEGORY_ICONS[category] ?? Icon.Dot, tintColor: CATEGORY_COLORS[category] }
+              }
               title={r.content.length > 80 ? r.content.slice(0, 80) + "…" : r.content}
-              subtitle={tags}
+              subtitle={isSelected ? `✓ selected · ${tags}` : tags}
               accessories={[
                 { text: r.source_date ?? "", tooltip: "Date" },
                 { tag: { value: `${score}%`, color: score >= 90 ? Color.Green : score >= 75 ? Color.Yellow : Color.SecondaryText } },
               ]}
               actions={
                 <ActionPanel>
-                  <ResultActions result={r} />
+                  {selectedCount > 0 && (
+                    <Action
+                      title={`Copy ${selectedCount} Selected`}
+                      icon={Icon.Clipboard}
+                      shortcut={{ modifiers: ["cmd"], key: "return" }}
+                      onAction={copySelected}
+                    />
+                  )}
+                  <ResultActions result={r} selectedIds={selectedIds} onToggleSelect={toggleSelect} />
                 </ActionPanel>
               }
             />

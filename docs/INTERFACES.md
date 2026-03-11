@@ -231,7 +231,7 @@ def finalize_unit_storage(conn, content: str, unit_id: str) -> None
 ```python
 @dataclass
 class ExtractedUnit:
-    content: str       # standalone sentence, no conversation context needed
+    content: str       # 1-3 sentences; includes reasoning (why/because/tradeoffs) for decisions/solutions; self-contained without original conversation
     category: str      # 'decision'|'fact'|'solution'|'code_pattern'|'preference'|'reference'
     topic_tags: list[str]   # 1-4 tags
     confidence: float       # 0.0-1.0

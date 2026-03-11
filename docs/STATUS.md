@@ -16,7 +16,7 @@ Last updated: 2026-03-10
 | Database layer | `database.py` | ✅ Done | sqlite-vec, all tables, CRUD + `conversations.summary` column |
 | Embeddings | `embeddings.py` | ✅ Done | e5-small-v2, lazy load, correct prefixes |
 | Deduplication | `dedup.py` | ✅ Done | Level 1 (URL delta) + Level 2 (cosine) |
-| Extraction | `extraction.py` | ✅ Done | Anthropic/OpenAI/Gemini/Ollama backends, chunking, `summarize_conversation()` |
+| Extraction | `extraction.py` | ✅ Done | Anthropic/OpenAI/Gemini/Ollama backends, chunking, `summarize_conversation()`; units are 1-3 sentences with reasoning |
 | Search | `search.py` | ✅ Done | Semantic search; dedup filter (`similar_to_id IS NULL`); returns `conversation_summary` |
 | Ingestion queue | `ingestion.py` | ✅ Done | asyncio.Queue + disk persistence; stores conversation summary post-extraction |
 | FastAPI daemon | `main.py` | ✅ Done | All 6 endpoints, lifespan management; full config defaults including Gemini keys |
@@ -39,8 +39,9 @@ Last updated: 2026-03-10
 | Component | File | Status | Notes |
 |---|---|---|---|
 | Search Memory command | `raycast-extension/src/search-memory.tsx` | ✅ Done | Category icons/colors, conversation summary in detail + paste |
-| Action flow | — | ✅ Done | Enter → detail view; Cmd+Enter → quick copy as XML context |
-| Paste format | `toPasteFormat()` | ✅ Done | XML `<context>` with summary + matched knowledge sections |
+| Multi-select | `search-memory.tsx` | ✅ Done | Cmd+D to toggle, floating "Copy N Selected" bar, `toPasteFormatMulti()` |
+| Action flow | — | ✅ Done | Enter → detail view; Cmd+Enter → copy current; Cmd+D → toggle select |
+| Paste format | `toPasteFormat()` / `toPasteFormatMulti()` | ✅ Done | XML `<context>` with summary + matched knowledge sections; multi outputs N blocks |
 
 ### CLI
 
@@ -93,7 +94,6 @@ Last updated: 2026-03-10
 | `osctx install` real test | — | Medium — launchd plist untested on real login cycle |
 | Hybrid search FTS5 table | Phase 6 | Low — scaffold exists, migration not yet written |
 | `extraction_on_battery` config key | — | Low — defined but ignored |
-| `osctx install` real test | — | Medium — launchd plist untested on fresh install |
 | Cross-device sync | Phase 6 | Future |
 | Perplexity / Notion importers | Phase 6 | Future |
 
@@ -106,8 +106,6 @@ Last updated: 2026-03-10
 2. **Hybrid search FTS5 table missing** — `search_hybrid()` falls back to pure semantic if FTS5 table missing. FTS5 table is never created — needs a migration in `database.py` before Phase 6 uses it.
 
 3. **`extraction_on_battery` config key ignored** — defined in config schema, never read in code.
-
-4. **`osctx install` untested on a fresh machine** — launchd plist path resolution not yet validated through a real login cycle on a machine where osctx was installed via `pip install`.
 
 ---
 
