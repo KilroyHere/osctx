@@ -54,6 +54,8 @@ Last updated: 2026-03-10
 | `osctx install` | ✅ Done | macOS launchd plist — **not yet tested on a real install** |
 | `osctx uninstall` | ✅ Done | Untested |
 | `osctx doctor` | ✅ Done | Checks Python, packages, config, daemon, plist |
+| `osctx mcp install` | ✅ Done | Writes Claude Desktop `claude_desktop_config.json` entry |
+| `osctx mcp uninstall` | ✅ Done | Removes osctx entry from Claude Desktop config |
 
 ### Tests
 
@@ -62,6 +64,13 @@ Last updated: 2026-03-10
 | `tests/test_parsers.py` | ✅ Done | 15 tests, all chatgpt + gemini edge cases |
 | `tests/test_search.py` | ✅ Done | Search structure, dedup, to_paste (with summary), to_dict |
 | `tests/test_extraction.py` | ✅ Done | LLM extraction with mocked backends (all 4), chunking, summarize_conversation |
+
+### MCP Server
+
+| Component | File | Status | Notes |
+|---|---|---|---|
+| MCP server | `osctx/mcp_server/server.py` | ✅ Done | 3 tools: `search_knowledge`, `get_by_topic`, `save_insight` |
+| CLI install | `osctx/cli/mcp_install.py` | ✅ Done | Writes/removes Claude Desktop config entry |
 
 ---
 
@@ -90,7 +99,6 @@ Last updated: 2026-03-10
 
 | Component | Phase | Priority |
 |---|---|---|
-| MCP server | Phase 5 | **HIGH** — enables Claude Desktop to query memory mid-conversation |
 | `osctx install` real test | — | Medium — launchd plist untested on real login cycle |
 | Hybrid search FTS5 table | Phase 6 | Low — scaffold exists, migration not yet written |
 | `extraction_on_battery` config key | — | Low — defined but ignored |

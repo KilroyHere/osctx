@@ -407,6 +407,51 @@ uvicorn osctx.daemon.main:app --host 127.0.0.1 --port 8765
 
 ---
 
+## MCP Server — `osctx/mcp_server/server.py`
+
+Three tools exposed to Claude Desktop via the MCP protocol.
+
+```python
+# Run: python -m osctx.mcp_server.server
+# Install: osctx mcp install
+
+async def search_knowledge(query: str, limit: int = 5) -> list[dict]
+# Semantic search over knowledge units.
+# Returns list of SearchResult.to_dict() — all fields, similarity_score rounded to 4 decimals.
+
+async def get_by_topic(topic: str) -> list[dict]
+# Exact tag match: WHERE topic_tags LIKE '%"topic"%'
+# Returns all matching knowledge_units rows as dicts, ordered by created_at DESC.
+
+async def save_insight(content: str, topic: str) -> str
+# Deduplicates first (content_hash_exists). If duplicate: returns "Already stored."
+# Otherwise: encode_passage() → insert_knowledge_unit(category="fact", source="claude_desktop",
+#   confidence=1.0) → insert_embedding() → record_content_hash()
+# Returns "Saved <unit_id>"
+```
+
+### `osctx/cli/mcp_install.py`
+
+```python
+CLAUDE_CONFIG: Path   # ~/Library/Application Support/Claude/claude_desktop_config.json
+
+def install() -> None
+# Reads existing config (or starts empty), sets mcpServers["osctx"] entry,
+# writes back. Points to sys.executable + ["-m", "osctx.mcp_server.server"].
+
+def uninstall() -> None
+# Removes mcpServers["osctx"] from config. No-op if not present.
+```
+
+### CLI commands added
+
+```
+osctx mcp install    → register in Claude Desktop config
+osctx mcp uninstall  → remove from Claude Desktop config
+```
+
+---
+
 ## CLI — `osctx/cli/main.py`
 
 ```

@@ -30,6 +30,9 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
+mcp_app = typer.Typer(help="Claude Desktop MCP integration.")
+app.add_typer(mcp_app, name="mcp")
+
 OSCTX_DIR = Path.home() / ".osctx"
 CONFIG_PATH = OSCTX_DIR / "config.json"
 DAEMON_URL = "http://localhost:8765"
@@ -264,6 +267,20 @@ def doctor() -> None:
     from .doctor import run_doctor
     exit_code = run_doctor()
     raise typer.Exit(exit_code)
+
+
+@mcp_app.command("install")
+def mcp_install() -> None:
+    """Register osctx as an MCP server in Claude Desktop."""
+    from .mcp_install import install
+    install()
+
+
+@mcp_app.command("uninstall")
+def mcp_uninstall() -> None:
+    """Remove osctx from Claude Desktop MCP servers."""
+    from .mcp_install import uninstall
+    uninstall()
 
 
 def main() -> None:

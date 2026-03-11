@@ -53,7 +53,7 @@ Each unit is 1–3 self-contained sentences including the reasoning — not bare
 | Search UI at `localhost:8765/ui` | ✅ Done |
 | Browser extension (Chrome — ChatGPT, Claude.ai, Gemini verified) | ✅ Done |
 | Raycast extension (search, detail view, multi-select copy) | ✅ Done |
-| MCP server (for Claude Desktop) | 🔲 Next |
+| MCP server (for Claude Desktop) | ✅ Done |
 
 ---
 
@@ -124,6 +124,28 @@ Chose partial indexes (WHERE deleted_at IS NULL) over full btree indexes because
 ```
 
 In Raycast, press `Cmd+D` to select multiple results, then copy them all as a batch into your next conversation.
+
+---
+
+## Claude Desktop (MCP)
+
+Connect osctx directly to Claude Desktop so Claude can search your memory mid-conversation.
+
+```bash
+pip install -e ".[mcp]"   # if not already installed
+osctx mcp install         # writes to ~/Library/Application Support/Claude/claude_desktop_config.json
+# Restart Claude Desktop
+```
+
+Three tools become available to Claude:
+
+- **`search_knowledge`** — semantic search over everything you've captured
+- **`get_by_topic`** — fetch all units tagged with a specific topic
+- **`save_insight`** — store a new insight directly from the conversation
+
+Example usage in Claude Desktop:
+> "Search my memory for postgres indexing strategies"
+> "Save this insight: use partial indexes for soft-delete patterns, topic: database"
 
 ---
 
