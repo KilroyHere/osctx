@@ -46,13 +46,14 @@ Each unit gets a confidence score, topic tags, and a one-sentence context note. 
 | FastAPI daemon (all 6 endpoints) | ✅ Done |
 | ChatGPT + Gemini export parsers | ✅ Done |
 | LLM extraction (Anthropic / Gemini / OpenAI / Ollama) | ✅ Done |
+| Conversation summaries (2-3 paragraph, per-conversation) | ✅ Done |
 | Semantic search with sqlite-vec | ✅ Done |
 | Two-level deduplication | ✅ Done |
 | CLI (`import`, `search`, `status`, `config`, `install`, `doctor`) | ✅ Done |
 | Search UI at `localhost:8765/ui` | ✅ Done |
-| Browser extension (Chrome) | 🔲 Next |
-| Raycast extension | 🔲 Next |
-| MCP server (for Claude Desktop) | 🔲 Planned |
+| Browser extension (Chrome — ChatGPT, Claude.ai, Gemini verified) | ✅ Done |
+| Raycast extension (search, detail view, multi-select copy) | ✅ Done |
+| MCP server (for Claude Desktop) | 🔲 Next |
 
 ---
 
@@ -110,15 +111,19 @@ osctx import ~/Downloads/Takeout/Gemini/Gemini\ Apps\ Activity.json --source gem
 osctx search "postgres indexing strategy"
 ```
 
-Or open `http://localhost:8765/ui` in your browser. Paste results are XML-wrapped for easy context injection:
+Or open `http://localhost:8765/ui` in your browser, or use the Raycast extension (`Search Memory`). Paste results are XML-wrapped for easy context injection:
 
 ```xml
 <context source="Chatgpt" date="2025-11-03" topic="database, postgresql">
-Use partial indexes for soft-delete patterns. WHERE deleted_at IS NULL on a
-btree index cuts query time by 90% on tables with < 5% deleted rows.
-Context: Optimization discussion for a SaaS analytics backend.
+## Conversation Summary
+Optimized a SaaS analytics backend — explored indexing strategies for soft-delete patterns and established guidelines for partial index usage.
+
+## Matched Knowledge
+Chose partial indexes (WHERE deleted_at IS NULL) over full btree indexes because query time drops 90% on tables where < 5% of rows are deleted, avoiding index bloat on the common fast path.
 </context>
 ```
+
+In Raycast, press `Cmd+D` to select multiple results, then copy them all as a batch into your next conversation.
 
 ---
 
