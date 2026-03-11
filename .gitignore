@@ -10,3 +10,7 @@ extension/node_modules/
 extension/dist/
 extension/dist.crx
 extension/dist.pem
+
+# Raycast extension
+raycast-extension/node_modules/
+raycast-extension/dist/

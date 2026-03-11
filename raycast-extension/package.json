@@ -1,0 +1,46 @@
+{
+  "name": "osctx-raycast",
+  "title": "OSCTX — Search Memory",
+  "description": "Search your personal AI conversation knowledge base",
+  "icon": "icon.png",
+  "author": "osctx",
+  "license": "MIT",
+  "version": "0.1.0",
+  "commands": [
+    {
+      "name": "search-memory",
+      "title": "Search Memory",
+      "description": "Search knowledge extracted from your AI conversations",
+      "mode": "view"
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.70.0",
+    "@raycast/utils": "^1.16.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^1.0.8",
+    "@types/node": "^20.8.10",
+    "@types/react": "^18.3.3",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.4.5"
+  },
+  "preferences": [
+    {
+      "name": "daemonUrl",
+      "title": "Daemon URL",
+      "description": "URL where the OSCTX daemon is running",
+      "type": "textfield",
+      "required": false,
+      "default": "http://localhost:8765"
+    }
+  ],
+  "scripts": {
+    "build": "ray build -e dist",
+    "dev": "ray develop",
+    "fix-lint": "ray lint --fix",
+    "lint": "ray lint",
+    "publish": "npx @raycast/api@latest publish"
+  }
+}
