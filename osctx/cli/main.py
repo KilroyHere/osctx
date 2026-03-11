@@ -10,6 +10,7 @@ Commands:
   osctx install              — Install daemon as macOS launchd service
   osctx uninstall            — Remove launchd service
   osctx doctor               — Check all dependencies
+  osctx logs                 — Show daemon status + tail live log
 """
 
 from __future__ import annotations
@@ -259,6 +260,38 @@ def uninstall() -> None:
     """Remove the OSCTX daemon launchd service."""
     from .install import uninstall as do_uninstall
     do_uninstall()
+
+
+@app.command()
+def logs(
+    lines: Annotated[int, typer.Option("--lines", "-n", help="Initial lines to show")] = 20,
+) -> None:
+    """Show daemon status then tail the live log (Ctrl+C to stop)."""
+    log_path = OSCTX_DIR / "daemon.log"
+
+    # Header: daemon health
+    if _daemon_ok():
+        try:
+            resp = httpx.get(f"{DAEMON_URL}/status", timeout=2.0)
+            d = resp.json()
+            typer.echo(f"Daemon:  \033[32mrunning\033[0m  |  units={d.get('knowledge_units',0)}  convs={d.get('conversations',0)}  queue={d.get('queue_depth',0)}")
+        except Exception:
+            typer.echo("Daemon:  \033[32mrunning\033[0m")
+    else:
+        typer.echo("Daemon:  \033[31moffline\033[0m  (start: uvicorn osctx.daemon.main:app --host 127.0.0.1 --port 8765)")
+
+    if not log_path.exists():
+        typer.echo(f"Log file not found: {log_path}")
+        raise typer.Exit(1)
+
+    typer.echo(f"\n\033[90m── {log_path} ──\033[0m\n")
+
+    # Print last N lines, then follow
+    import subprocess
+    try:
+        subprocess.run(["tail", f"-{lines}", "-f", str(log_path)])
+    except KeyboardInterrupt:
+        pass
 
 
 @app.command()

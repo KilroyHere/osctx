@@ -3,336 +3,667 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OSCTX — Search Memory</title>
+  <title>OSCTX — Memory</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f10;
+      --bg2: #161618;
+      --bg3: #1e1e22;
+      --border: #2a2a2e;
+      --border-focus: #5b8af5;
+      --text: #e2e2e2;
+      --text2: #888;
+      --text3: #555;
+      --blue: #5b8af5;
+      --green: #5abf7a;
+      --purple: #a78bfa;
+      --orange: #f5a623;
+      --red: #f56b5b;
+      --yellow: #f5d05b;
+    }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #0f0f10;
-      color: #e8e8e8;
+      background: var(--bg);
+      color: var(--text);
       height: 100vh;
       display: flex;
       flex-direction: column;
-      padding: 24px;
-      gap: 16px;
+      overflow: hidden;
     }
 
-    #header {
+    /* ── Top bar ── */
+    #topbar {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      background: var(--bg2);
     }
 
-    #header h1 {
-      font-size: 14px;
-      font-weight: 600;
-      color: #888;
-      letter-spacing: 0.08em;
+    #topbar h1 {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
+      color: var(--text2);
+      white-space: nowrap;
     }
 
-    #search-container {
-      position: relative;
-    }
-
-    #q {
-      width: 100%;
-      padding: 12px 16px;
-      font-size: 16px;
-      background: #1a1a1d;
-      border: 1px solid #2d2d30;
-      border-radius: 8px;
-      color: #e8e8e8;
+    #search-input {
+      flex: 1;
+      padding: 8px 14px;
+      font-size: 14px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
       outline: none;
       transition: border-color 0.15s;
     }
+    #search-input:focus { border-color: var(--border-focus); }
+    #search-input::placeholder { color: var(--text3); }
 
-    #q:focus { border-color: #5b8af5; }
-    #q::placeholder { color: #555; }
-
-    #status {
+    .tab-btn {
+      padding: 6px 14px;
       font-size: 12px;
-      color: #555;
-      height: 16px;
+      font-weight: 500;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text2);
+      cursor: pointer;
+      transition: all 0.12s;
+      white-space: nowrap;
+    }
+    .tab-btn:hover { border-color: var(--blue); color: var(--blue); }
+    .tab-btn.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+
+    #stats-pill {
+      font-size: 11px;
+      color: var(--text3);
+      white-space: nowrap;
+      margin-left: auto;
     }
 
-    #results {
+    /* ── Filter row ── */
+    #filterbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 20px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+      background: var(--bg);
+    }
+
+    #filterbar label {
+      font-size: 11px;
+      color: var(--text3);
+      margin-right: 2px;
+    }
+
+    .filter-chip {
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text2);
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .filter-chip:hover { border-color: var(--text2); }
+    .filter-chip.active { background: var(--bg3); border-color: var(--text2); color: var(--text); }
+
+    .divider { width: 1px; height: 16px; background: var(--border); margin: 0 4px; }
+
+    #status-bar {
+      font-size: 11px;
+      color: var(--text3);
+      margin-left: auto;
+    }
+
+    /* ── Main content ── */
+    #content {
       flex: 1;
       overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
+      padding: 16px 20px;
     }
 
-    .result {
-      background: #1a1a1d;
-      border: 1px solid #2d2d30;
+    /* ── Result cards ── */
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
       border-radius: 8px;
       padding: 14px 16px;
+      margin-bottom: 8px;
       cursor: pointer;
       transition: border-color 0.12s, background 0.12s;
       outline: none;
     }
+    .card:hover, .card.focused { border-color: var(--blue); background: var(--bg3); }
+    .card.selected { border-color: var(--green); background: var(--bg3); }
 
-    .result:hover,
-    .result.focused {
-      border-color: #5b8af5;
-      background: #1e1e24;
-    }
-
-    .result-content {
+    .card-content {
       font-size: 14px;
-      line-height: 1.5;
-      color: #e8e8e8;
-      margin-bottom: 6px;
+      line-height: 1.55;
+      color: var(--text);
+      margin-bottom: 8px;
       white-space: pre-wrap;
     }
 
-    .result-meta {
+    .card-meta {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       flex-wrap: wrap;
     }
 
     .badge {
-      font-size: 11px;
+      font-size: 10px;
+      font-weight: 600;
       padding: 2px 7px;
       border-radius: 4px;
-      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
     }
 
-    .badge-source {
-      background: #2d3a5e;
-      color: #7aa2f7;
+    /* Category colors */
+    .cat-decision  { background: #1e2a4a; color: #7aa2f7; }
+    .cat-fact      { background: #1e3028; color: #73c991; }
+    .cat-solution  { background: #2a1e3a; color: #bb9af7; }
+    .cat-code_pattern { background: #2a2210; color: #e0af68; }
+    .cat-preference { background: #2a1e1e; color: #f7768e; }
+    .cat-reference  { background: #1e2a2a; color: #7dcfff; }
+
+    /* Source colors */
+    .src-chatgpt   { background: #1a2a1a; color: #5abf7a; }
+    .src-gemini    { background: #1a1e2a; color: #5b8af5; }
+    .src-claude, .src-claude_desktop { background: #2a1e2a; color: #a78bfa; }
+    .src-default   { background: #222; color: #888; }
+
+    .tag {
+      font-size: 10px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 1px 6px;
+      color: var(--text3);
     }
 
-    .badge-category {
-      background: #2d3a2d;
-      color: #73c991;
-    }
-
-    .meta-text {
-      font-size: 11px;
-      color: #666;
-    }
-
-    .confidence {
-      font-size: 11px;
-      color: #888;
-      margin-left: auto;
-    }
-
-    .result-context {
+    .meta-date { font-size: 11px; color: var(--text3); }
+    .meta-score { font-size: 11px; color: var(--text3); margin-left: auto; }
+    .card-context {
       margin-top: 6px;
       font-size: 12px;
-      color: #666;
+      color: var(--text3);
       font-style: italic;
+      border-top: 1px solid var(--border);
+      padding-top: 6px;
     }
+    .check-icon { color: var(--green); font-size: 14px; margin-right: 4px; }
 
-    #copied-toast {
+    /* ── Browse grid header ── */
+    .section-header {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text3);
+      margin: 16px 0 8px;
+    }
+    .section-header:first-child { margin-top: 0; }
+
+    /* ── Stats panel ── */
+    #stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+    .stat-value { font-size: 28px; font-weight: 700; color: var(--text); }
+    .stat-label { font-size: 11px; color: var(--text3); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    /* ── Multi-select bar ── */
+    #select-bar {
+      display: none;
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--blue);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 24px;
+      font-size: 13px;
+      font-weight: 500;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 4px 20px rgba(91,138,245,0.4);
+      z-index: 100;
+      white-space: nowrap;
+    }
+    #select-bar.visible { display: flex; }
+    #select-bar button {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      border-radius: 4px;
+      color: #fff;
+      padding: 4px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    #select-bar button:hover { background: rgba(255,255,255,0.3); }
+
+    /* ── Toast ── */
+    #toast {
       position: fixed;
       bottom: 24px;
       right: 24px;
-      background: #5b8af5;
-      color: white;
-      padding: 10px 18px;
+      background: #333;
+      color: #fff;
+      padding: 10px 16px;
       border-radius: 8px;
       font-size: 13px;
-      font-weight: 500;
       opacity: 0;
-      transform: translateY(8px);
+      transform: translateY(6px);
       transition: opacity 0.2s, transform 0.2s;
       pointer-events: none;
+      z-index: 200;
     }
+    #toast.show { opacity: 1; transform: translateY(0); }
 
-    #copied-toast.show {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    .empty { color: var(--text3); font-size: 14px; text-align: center; padding: 60px 0; }
 
-    .empty {
-      color: #555;
-      font-size: 14px;
-      text-align: center;
-      margin-top: 40px;
-    }
-
-    /* Tags */
-    .tag {
-      font-size: 10px;
-      background: #222;
-      border: 1px solid #333;
-      border-radius: 3px;
-      padding: 1px 5px;
-      color: #888;
-    }
+    /* scrollbar */
+    #content::-webkit-scrollbar { width: 6px; }
+    #content::-webkit-scrollbar-track { background: transparent; }
+    #content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
   </style>
 </head>
 <body>
 
-<div id="header">
-  <h1>OSCTX · Search Memory</h1>
+<!-- TOP BAR -->
+<div id="topbar">
+  <h1>OSCTX</h1>
+  <input type="text" id="search-input" placeholder="Search memory… (/ to focus)" autocomplete="off">
+  <button class="tab-btn active" id="tab-search" onclick="switchTab('search')">Search</button>
+  <button class="tab-btn" id="tab-browse" onclick="switchTab('browse')">Browse</button>
+  <span id="stats-pill">loading…</span>
 </div>
 
-<div id="search-container">
-  <input
-    type="text"
-    id="q"
-    placeholder="Search your AI conversation history…"
-    autocomplete="off"
-    autofocus
-  >
+<!-- FILTER BAR -->
+<div id="filterbar">
+  <label>Category:</label>
+  <button class="filter-chip active" data-filter="cat" data-val="">All</button>
+  <button class="filter-chip" data-filter="cat" data-val="decision">Decision</button>
+  <button class="filter-chip" data-filter="cat" data-val="fact">Fact</button>
+  <button class="filter-chip" data-filter="cat" data-val="solution">Solution</button>
+  <button class="filter-chip" data-filter="cat" data-val="code_pattern">Code</button>
+  <button class="filter-chip" data-filter="cat" data-val="preference">Preference</button>
+  <button class="filter-chip" data-filter="cat" data-val="reference">Reference</button>
+
+  <div class="divider"></div>
+  <label>Source:</label>
+  <button class="filter-chip active" data-filter="src" data-val="">All</button>
+  <button class="filter-chip" id="src-chatgpt" data-filter="src" data-val="chatgpt">ChatGPT</button>
+  <button class="filter-chip" id="src-claude" data-filter="src" data-val="claude">Claude</button>
+  <button class="filter-chip" id="src-gemini" data-filter="src" data-val="gemini">Gemini</button>
+
+  <span id="status-bar"></span>
 </div>
 
-<div id="status"></div>
+<!-- MAIN CONTENT -->
+<div id="content">
+  <div class="empty">Type to search, or switch to Browse</div>
+</div>
 
-<div id="results"></div>
+<!-- MULTI-SELECT BAR -->
+<div id="select-bar">
+  <span id="select-count">0 selected</span>
+  <button onclick="copySelected()">Copy as Context</button>
+  <button onclick="clearSelection()">Clear</button>
+</div>
 
-<div id="copied-toast">Context copied to clipboard</div>
+<!-- TOAST -->
+<div id="toast"></div>
 
 <script>
-  const input = document.getElementById('q');
-  const resultsEl = document.getElementById('results');
-  const statusEl = document.getElementById('status');
-  const toast = document.getElementById('copied-toast');
+  // ── State ──
+  let mode = 'search';          // 'search' | 'browse'
+  let filterCat = '';
+  let filterSrc = '';
+  let searchResults = [];
+  let browseItems = [];
+  let allItems = [];
+  let selected = new Set();     // unit ids
+  let focusedIdx = -1;
+  let debounce = null;
 
-  let debounceTimer = null;
-  let currentResults = [];
-  let focusedIndex = -1;
+  const input = document.getElementById('search-input');
+  const content = document.getElementById('content');
+  const statusBar = document.getElementById('status-bar');
+  const statsPill = document.getElementById('stats-pill');
+  const selectBar = document.getElementById('select-bar');
+  const selectCount = document.getElementById('select-count');
+  const toast = document.getElementById('toast');
 
-  input.addEventListener('input', () => {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => doSearch(input.value.trim()), 300);
+  // ── Init ──
+  window.addEventListener('load', async () => {
+    input.focus();
+    await loadStats();
+    await loadBrowse();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === '/' && document.activeElement !== input) {
+      e.preventDefault(); input.focus(); return;
+    }
+    if (document.activeElement === input) return;
+    if (e.key === 'ArrowDown') moveFocus(1);
+    if (e.key === 'ArrowUp') moveFocus(-1);
+    if (e.key === 'Enter') activateFocused();
+    if (e.key === 'Escape') clearSelection();
   });
 
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      moveFocus(1);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      moveFocus(-1);
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      if (focusedIndex >= 0 && focusedIndex < currentResults.length) {
-        copyResult(currentResults[focusedIndex]);
-      } else if (currentResults.length > 0) {
-        copyResult(currentResults[0]);
-      }
-    } else if (e.key === 'Escape') {
-      input.value = '';
-      clearResults();
-    }
+    if (e.key === 'ArrowDown') { e.preventDefault(); moveFocus(1); }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); moveFocus(-1); }
+    if (e.key === 'Enter')     { e.preventDefault(); activateFocused(); }
+    if (e.key === 'Escape')    { input.value = ''; doSearch(''); input.blur(); }
   });
 
-  function moveFocus(delta) {
-    const items = resultsEl.querySelectorAll('.result');
-    if (!items.length) return;
-    items[focusedIndex]?.classList.remove('focused');
-    focusedIndex = Math.max(0, Math.min(items.length - 1, focusedIndex + delta));
-    items[focusedIndex]?.classList.add('focused');
-    items[focusedIndex]?.scrollIntoView({ block: 'nearest' });
+  input.addEventListener('input', () => {
+    if (mode === 'browse') switchTab('search');
+    clearTimeout(debounce);
+    debounce = setTimeout(() => doSearch(input.value.trim()), 280);
+  });
+
+  // Filter chips
+  document.querySelectorAll('.filter-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const group = btn.dataset.filter;
+      document.querySelectorAll(`.filter-chip[data-filter="${group}"]`).forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (group === 'cat') filterCat = btn.dataset.val;
+      else filterSrc = btn.dataset.val;
+      refresh();
+    });
+  });
+
+  // ── Tab switching ──
+  function switchTab(t) {
+    mode = t;
+    document.getElementById('tab-search').classList.toggle('active', t === 'search');
+    document.getElementById('tab-browse').classList.toggle('active', t === 'browse');
+    if (t === 'browse') { input.value = ''; renderBrowse(); }
+    else renderSearch();
   }
 
-  async function doSearch(q) {
-    if (!q) { clearResults(); return; }
+  function refresh() {
+    mode === 'search' ? renderSearch() : renderBrowse();
+  }
 
-    statusEl.textContent = 'Searching…';
+  // ── Stats ──
+  async function loadStats() {
     try {
-      const resp = await fetch(`/search?q=${encodeURIComponent(q)}&limit=8`);
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const data = await resp.json();
-      currentResults = data.results || [];
-      focusedIndex = -1;
-      renderResults(currentResults);
-      statusEl.textContent = currentResults.length
-        ? `${currentResults.length} result${currentResults.length !== 1 ? 's' : ''}`
-        : '';
-    } catch (err) {
-      statusEl.textContent = 'Daemon not reachable — is osctx running?';
-      resultsEl.innerHTML = '<p class="empty">Could not connect to daemon on localhost:8765</p>';
-      currentResults = [];
-    }
+      const d = await (await fetch('/status')).json();
+      const units = d.knowledge_units || 0;
+      const convs = d.conversations || 0;
+      const q = d.queue_depth || 0;
+      statsPill.textContent = `${units} units · ${convs} convs${q ? ` · ${q} queued` : ''}`;
+
+      // update source chip labels with counts
+      const by = d.by_source || {};
+      if (by.chatgpt)  document.getElementById('src-chatgpt').textContent = `ChatGPT (${by.chatgpt})`;
+      if (by.claude || by.claude_desktop) {
+        const n = (by.claude||0) + (by.claude_desktop||0);
+        document.getElementById('src-claude').textContent = `Claude (${n})`;
+      }
+      if (by.gemini)   document.getElementById('src-gemini').textContent = `Gemini (${by.gemini})`;
+    } catch { statsPill.textContent = 'daemon offline'; }
   }
 
-  function renderResults(results) {
-    if (!results.length) {
-      resultsEl.innerHTML = '<p class="empty">No results found</p>';
+  // ── Browse (all units) ──
+  async function loadBrowse() {
+    try {
+      // Use search with empty-ish query to get recent units; fall back to status
+      // We'll fetch via a broad search or the status endpoint categories
+      // Actually load recent: search with a space which returns by recency
+      const resp = await fetch('/search?q=the+a+of&limit=200&hybrid=true');
+      const data = await resp.json();
+      browseItems = data.results || [];
+      // deduplicate
+      const seen = new Set();
+      browseItems = browseItems.filter(r => { if (seen.has(r.id)) return false; seen.add(r.id); return true; });
+    } catch { browseItems = []; }
+  }
+
+  function applyFilters(items) {
+    return items.filter(r => {
+      if (filterCat && r.category !== filterCat) return false;
+      if (filterSrc && !((r.source||'').includes(filterSrc))) return false;
+      return true;
+    });
+  }
+
+  // ── Render ──
+  function renderSearch() {
+    const q = input.value.trim();
+    if (!q) {
+      content.innerHTML = '<div class="empty">Type a query to search your memory</div>';
+      statusBar.textContent = '';
       return;
     }
+    const filtered = applyFilters(searchResults);
+    renderCards(filtered, true);
+    statusBar.textContent = filtered.length ? `${filtered.length} result${filtered.length !== 1 ? 's' : ''}` : 'No results';
+  }
 
-    resultsEl.innerHTML = results.map((r, i) => {
-      const tags = (r.topic_tags || []).map(t => `<span class="tag">${esc(t)}</span>`).join(' ');
-      const score = r.similarity_score ? Math.round(r.similarity_score * 100) + '%' : '';
-      const date = r.source_date || '';
-      return `
-        <div class="result" tabindex="0" data-index="${i}" onclick="copyResult(currentResults[${i}])">
-          <div class="result-content">${esc(r.content)}</div>
-          <div class="result-meta">
-            <span class="badge badge-source">${esc(r.source || '')}</span>
-            ${r.category ? `<span class="badge badge-category">${esc(r.category)}</span>` : ''}
-            ${date ? `<span class="meta-text">${esc(date)}</span>` : ''}
-            ${tags}
-            ${score ? `<span class="confidence">${score}</span>` : ''}
-          </div>
-          ${r.context ? `<div class="result-context">${esc(r.context)}</div>` : ''}
+  function renderBrowse() {
+    const filtered = applyFilters(browseItems);
+    if (!filtered.length) {
+      content.innerHTML = '<div class="empty">No items match the current filter</div>';
+      statusBar.textContent = '';
+      return;
+    }
+    // Group by category
+    const groups = {};
+    filtered.forEach(r => {
+      const cat = r.category || 'other';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(r);
+    });
+    const order = ['decision', 'solution', 'code_pattern', 'fact', 'preference', 'reference', 'other'];
+    let html = '';
+    order.forEach(cat => {
+      if (!groups[cat]) return;
+      html += `<div class="section-header">${catLabel(cat)} (${groups[cat].length})</div>`;
+      html += groups[cat].map((r, i) => cardHtml(r, `b-${cat}-${i}`)).join('');
+    });
+    content.innerHTML = html;
+    statusBar.textContent = `${filtered.length} unit${filtered.length !== 1 ? 's' : ''}`;
+    attachCardEvents();
+  }
+
+  function renderCards(items, showScore) {
+    if (!items.length) {
+      content.innerHTML = '<div class="empty">No results found</div>';
+      return;
+    }
+    content.innerHTML = items.map((r, i) => cardHtml(r, `s-${i}`, showScore)).join('');
+    attachCardEvents();
+    focusedIdx = -1;
+  }
+
+  function cardHtml(r, key, showScore) {
+    const isSelected = selected.has(r.id);
+    const tags = (r.topic_tags || []).map(t => `<span class="tag">${esc(t)}</span>`).join(' ');
+    const score = (showScore && r.similarity_score) ? Math.round(r.similarity_score * 100) + '%' : '';
+    const catClass = `cat-${(r.category || 'fact').replace(/[^a-z_]/g, '')}`;
+    const srcKey = (r.source || '').replace('claude_desktop', 'claude');
+    const srcClass = `src-${srcKey || 'default'}`;
+    return `
+      <div class="card${isSelected ? ' selected' : ''}" data-id="${esc(r.id)}" data-key="${key}" onclick="handleClick(event, '${esc(r.id)}')">
+        <div class="card-content">${isSelected ? '<span class="check-icon">✓</span>' : ''}${esc(r.content)}</div>
+        <div class="card-meta">
+          ${r.category ? `<span class="badge ${catClass}">${esc(r.category)}</span>` : ''}
+          ${r.source   ? `<span class="badge ${srcClass}">${esc(r.source.replace('_',' '))}</span>` : ''}
+          ${r.source_date ? `<span class="meta-date">${esc(r.source_date)}</span>` : ''}
+          ${tags}
+          ${score ? `<span class="meta-score">${score}</span>` : ''}
         </div>
-      `;
-    }).join('');
+        ${r.context ? `<div class="card-context">${esc(r.context)}</div>` : ''}
+      </div>`;
   }
 
-  function clearResults() {
-    resultsEl.innerHTML = '';
-    statusEl.textContent = '';
-    currentResults = [];
-    focusedIndex = -1;
+  function attachCardEvents() {
+    document.querySelectorAll('.card').forEach((el, i) => {
+      el.setAttribute('tabindex', '0');
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); const id = el.dataset.id; if (id) copyById(id); }
+      });
+    });
   }
 
-  async function copyResult(result) {
-    if (!result) return;
-    const tags = (result.topic_tags || []).join(', ');
-    const date = result.source_date || 'unknown';
-    const source = (result.source || 'AI').charAt(0).toUpperCase() + (result.source || 'AI').slice(1);
+  // ── Interactions ──
+  function handleClick(e, id) {
+    if (e.shiftKey || e.metaKey) { toggleSelect(id); }
+    else if (selected.size > 0) { toggleSelect(id); }
+    else { copyById(id); }
+  }
 
-    let text = `<context source="${source}" date="${date}" topic="${tags}">\n${result.content}`;
-    if (result.context) text += `\n${result.context}`;
-    text += '\n</context>';
+  function toggleSelect(id) {
+    if (selected.has(id)) selected.delete(id);
+    else selected.add(id);
+    updateSelectBar();
+    // re-render to show checkmarks
+    refresh();
+  }
 
-    try {
-      await navigator.clipboard.writeText(text);
-      showToast();
-    } catch {
-      // Fallback: select a textarea
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-      showToast();
+  function updateSelectBar() {
+    if (selected.size > 0) {
+      selectBar.classList.add('visible');
+      selectCount.textContent = `${selected.size} selected`;
+    } else {
+      selectBar.classList.remove('visible');
     }
   }
 
-  function showToast() {
+  function clearSelection() {
+    selected.clear();
+    updateSelectBar();
+    refresh();
+  }
+
+  function moveFocus(delta) {
+    const cards = content.querySelectorAll('.card');
+    if (!cards.length) return;
+    cards[focusedIdx]?.classList.remove('focused');
+    focusedIdx = Math.max(0, Math.min(cards.length - 1, focusedIdx + delta));
+    cards[focusedIdx]?.classList.add('focused');
+    cards[focusedIdx]?.scrollIntoView({ block: 'nearest' });
+  }
+
+  function activateFocused() {
+    const cards = content.querySelectorAll('.card');
+    if (focusedIdx >= 0 && cards[focusedIdx]) {
+      const id = cards[focusedIdx].dataset.id;
+      if (id) copyById(id);
+    } else if (cards.length > 0) {
+      const id = cards[0].dataset.id;
+      if (id) copyById(id);
+    }
+  }
+
+  // ── Search ──
+  async function doSearch(q) {
+    if (!q) { searchResults = []; renderSearch(); return; }
+    statusBar.textContent = 'Searching…';
+    try {
+      const resp = await fetch(`/search?q=${encodeURIComponent(q)}&limit=10&hybrid=true`);
+      const data = await resp.json();
+      searchResults = data.results || [];
+      focusedIdx = -1;
+      renderSearch();
+    } catch {
+      statusBar.textContent = 'Daemon offline';
+      content.innerHTML = '<div class="empty">Cannot connect to daemon on localhost:8765</div>';
+      searchResults = [];
+    }
+  }
+
+  // ── Copy ──
+  function getItemById(id) {
+    return [...searchResults, ...browseItems].find(r => r.id === id);
+  }
+
+  function toPaste(r) {
+    const tags = (r.topic_tags || []).join(', ');
+    const date = r.source_date || 'unknown';
+    const src = (r.source || 'AI').charAt(0).toUpperCase() + (r.source || 'AI').slice(1);
+    let t = `<context source="${src}" date="${date}" topic="${tags}">\n`;
+    if (r.conversation_summary) {
+      t += `## Conversation Summary\n${r.conversation_summary}\n\n## Matched Knowledge\n`;
+    }
+    t += r.content;
+    if (r.context) t += `\n${r.context}`;
+    t += '\n</context>';
+    return t;
+  }
+
+  function copyById(id) {
+    const r = getItemById(id);
+    if (r) copyText(toPaste(r), 'Context copied');
+  }
+
+  function copySelected() {
+    const items = [...selected].map(id => getItemById(id)).filter(Boolean);
+    if (!items.length) return;
+    copyText(items.map(toPaste).join('\n\n'), `Copied ${items.length} context block${items.length > 1 ? 's' : ''}`);
+    clearSelection();
+  }
+
+  async function copyText(text, msg) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = Object.assign(document.createElement('textarea'), {
+        value: text, style: 'position:fixed;opacity:0'
+      });
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+    }
+    showToast(msg || 'Copied');
+  }
+
+  function showToast(msg) {
+    toast.textContent = msg;
     toast.classList.add('show');
     setTimeout(() => toast.classList.remove('show'), 2000);
   }
 
-  function esc(s) {
-    if (!s) return '';
-    return String(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+  function catLabel(c) {
+    return { decision: 'Decisions', fact: 'Facts', solution: 'Solutions',
+             code_pattern: 'Code Patterns', preference: 'Preferences',
+             reference: 'References', other: 'Other' }[c] || c;
   }
 
-  // Focus input on load
-  window.addEventListener('load', () => input.focus());
+  function esc(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
 </script>
 </body>
 </html>

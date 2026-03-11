@@ -12,19 +12,21 @@ It runs silently in the background, captures your AI conversations, extracts the
 AI chat tab  →  browser extension  →  POST /ingest  →  LLM extraction  →  sqlite-vec
                                                                                ↓
 Raycast / localhost:8765/ui  ←────────────────────────── semantic search ──────┘
+                                                                               ↓
+Claude Desktop (MCP)  ←──────────────────────── search_knowledge tool ─────────┘
 ```
 
 Three components:
 
 1. **Capture** — Chrome extension monitors ChatGPT, Claude.ai, and Gemini. Triggers on tab close, 5-minute inactivity, or `Cmd+Shift+S`. Buffers offline.
 2. **Brain** — FastAPI daemon on port 8765. Extracts knowledge units via LLM (Anthropic/Gemini/OpenAI/Ollama), embeds with `intfloat/e5-small-v2`, stores in a single SQLite file with `sqlite-vec`.
-3. **Retrieval** — Raycast extension or `localhost:8765/ui`. Copies XML-wrapped context ready to paste.
+3. **Retrieval** — Raycast extension, `localhost:8765/ui` browser UI, or Claude Desktop MCP tools.
 
 ---
 
 ## What Gets Extracted
 
-The LLM reads your conversations and pulls out:
+Each unit is 1–3 self-contained sentences including the reasoning:
 
 - **decisions** — "Chose UUIDs over auto-increment because the system generates IDs across multiple services without a central coordinator, avoiding tight coupling on a single sequence generator."
 - **facts** — "PostgreSQL JSONB outperforms EAV tables for sparse attributes because JSONB uses a binary format with indexable keys, while EAV requires a JOIN per attribute."
@@ -33,143 +35,169 @@ The LLM reads your conversations and pulls out:
 - **preferences** — your stated tool/language/library preferences
 - **references** — papers, docs, links worth keeping
 
-Each unit is 1–3 self-contained sentences including the reasoning — not bare facts. Units get a confidence score, topic tags, and a one-sentence context note. Low-confidence units (< 0.7) are discarded. Near-duplicates (cosine similarity > 0.97) are skipped.
+Low-confidence units (< 0.7) are discarded. Near-duplicates (cosine similarity > 0.97) are skipped.
 
 ---
 
 ## Current Status
 
-**Backend: fully working.** Tested end-to-end with Gemini extraction and e5-small-v2 embeddings.
-
 | Component | Status |
 |---|---|
-| FastAPI daemon (all 6 endpoints) | ✅ Done |
+| FastAPI daemon (6 endpoints) | ✅ Done |
 | ChatGPT + Gemini export parsers | ✅ Done |
 | LLM extraction (Anthropic / Gemini / OpenAI / Ollama) | ✅ Done |
-| Conversation summaries (2-3 paragraph, per-conversation) | ✅ Done |
-| Semantic search with sqlite-vec | ✅ Done |
+| Conversation summaries (2–3 paragraphs, per-conversation) | ✅ Done |
+| Semantic + hybrid (BM25+vector) search | ✅ Done |
 | Two-level deduplication | ✅ Done |
-| CLI (`import`, `search`, `status`, `config`, `install`, `doctor`) | ✅ Done |
-| Search UI at `localhost:8765/ui` | ✅ Done |
-| Browser extension (Chrome — ChatGPT, Claude.ai, Gemini verified) | ✅ Done |
+| CLI (`import`, `search`, `status`, `logs`, `config`, `install`, `doctor`) | ✅ Done |
+| Browser UI at `localhost:8765/ui` (search + browse + multi-select) | ✅ Done |
+| Browser extension (Chrome — ChatGPT, Claude.ai, Gemini) | ✅ Done |
 | Raycast extension (search, detail view, multi-select copy) | ✅ Done |
-| MCP server (for Claude Desktop) | ✅ Done |
+| MCP server for Claude Desktop (search, save, ingest conversation) | ✅ Done |
 
 ---
 
-## Install
+## Quick Setup (fresh clone)
 
-**Requirements:** Python 3.11+, macOS (launchd daemon). Linux works without auto-start.
+### 1 — Python environment
 
 ```bash
 git clone https://github.com/you/osctx
 cd osctx
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[gemini]"    # or [openai] for OpenAI backend
+pip install -e ".[gemini]"    # swap 'gemini' for 'openai' or 'anthropic'
 ```
 
-Configure:
+### 2 — Configure your LLM key
 
 ```bash
 osctx config --set extraction_backend=gemini
 osctx config --set gemini_api_key=YOUR_KEY
+# or: osctx config --set extraction_backend=anthropic
+#     osctx config --set anthropic_api_key=YOUR_KEY
 ```
 
-Start daemon (auto-start on login):
+### 3 — Start the daemon
 
 ```bash
-osctx install          # writes launchd plist, starts daemon
-osctx doctor           # verify everything is working
-```
-
-Or run manually:
-
-```bash
+# One-time, in a terminal (keep it running):
 .venv/bin/uvicorn osctx.daemon.main:app --host 127.0.0.1 --port 8765
+
+# Or auto-start on login (macOS):
+osctx install
+
+# Check health:
+osctx logs          # status + live log tail
+osctx doctor        # dependency check
+```
+
+### 4 — Browser extension (Chrome)
+
+1. Open `chrome://extensions`, enable **Developer mode**
+2. Click **Load unpacked** → select the `extension/` folder
+3. Pin the extension. Click it on any ChatGPT/Claude/Gemini page to capture.
+
+### 5 — Raycast extension (optional)
+
+```bash
+cd raycast-extension
+npm install
+npm run build
+```
+
+Open Raycast → Extensions → + Import Extension → select `raycast-extension/`. Search with `Search Memory`.
+
+### 6 — Claude Desktop MCP (optional)
+
+```bash
+pip install -e ".[mcp]"
+osctx mcp install       # writes Claude Desktop config
+# Quit and reopen Claude Desktop
 ```
 
 ---
 
-## Import Your History
+## Import Existing History
 
-ChatGPT: Settings → Data Controls → Export Data → upload `conversations.json`
+**ChatGPT:** Settings → Data Controls → Export Data → download `conversations.json`
 ```bash
 osctx import ~/Downloads/conversations.json --source chatgpt
 ```
 
-Gemini (Google Takeout): request takeout at takeout.google.com, select Gemini Apps Activity
+**Gemini:** [takeout.google.com](https://takeout.google.com) → select "Gemini Apps Activity" → download
 ```bash
 osctx import ~/Downloads/Takeout/Gemini/Gemini\ Apps\ Activity.json --source gemini
 ```
 
+Monitor extraction progress:
+```bash
+osctx logs
+```
+
 ---
 
-## Search
+## Search & Retrieval
 
+**Browser UI** — open `http://localhost:8765/ui`:
+- **Search tab**: semantic + hybrid search with category/source filters
+- **Browse tab**: all units grouped by category (Decisions, Solutions, Facts…)
+- Click any card to copy as `<context>` XML. Shift+click or Cmd+click to multi-select.
+
+**CLI:**
 ```bash
 osctx search "postgres indexing strategy"
 ```
 
-Or open `http://localhost:8765/ui` in your browser, or use the Raycast extension (`Search Memory`). Paste results are XML-wrapped for easy context injection:
+**Raycast** — `Search Memory`, then:
+- `Enter` → copy top result as context
+- `Cmd+D` → toggle select, build a batch
+- `Cmd+Enter` when items selected → copy all selected
 
+Paste format:
 ```xml
 <context source="Chatgpt" date="2025-11-03" topic="database, postgresql">
 ## Conversation Summary
-Optimized a SaaS analytics backend — explored indexing strategies for soft-delete patterns and established guidelines for partial index usage.
+Optimized a SaaS analytics backend — explored indexing strategies for soft-delete patterns.
 
 ## Matched Knowledge
-Chose partial indexes (WHERE deleted_at IS NULL) over full btree indexes because query time drops 90% on tables where < 5% of rows are deleted, avoiding index bloat on the common fast path.
+Chose partial indexes (WHERE deleted_at IS NULL) over full btree indexes because query
+time drops 90% on tables where < 5% of rows are deleted, avoiding index bloat.
 </context>
 ```
-
-In Raycast, press `Cmd+D` to select multiple results, then copy them all as a batch into your next conversation.
 
 ---
 
 ## Claude Desktop (MCP)
 
-Connect osctx directly to Claude Desktop so Claude can search your memory mid-conversation.
+After `osctx mcp install` and restarting Claude Desktop, four tools are available:
 
-```bash
-pip install -e ".[mcp]"   # if not already installed
-osctx mcp install         # writes to ~/Library/Application Support/Claude/claude_desktop_config.json
-# Restart Claude Desktop
-```
+| Tool | When Claude uses it |
+|---|---|
+| `search_knowledge` | Automatically when you ask about past decisions, projects, preferences |
+| `get_by_topic` | "Show me everything about postgres" |
+| `save_insight` | "Remember this", "Note that", mid-conversation facts |
+| `ingest_conversation` | "Save this chat to memory", "Extract knowledge from this conversation" |
 
-Three tools become available to Claude:
-
-- **`search_knowledge`** — semantic search over everything you've captured
-- **`get_by_topic`** — fetch all units tagged with a specific topic
-- **`save_insight`** — store a new insight directly from the conversation
-
-Example usage in Claude Desktop:
-> "Search my memory for postgres indexing strategies"
-> "Save this insight: use partial indexes for soft-delete patterns, topic: database"
+Example prompts:
+> "What do I know about authentication strategies?"
+> "Save this conversation to memory"
+> "Do I have any notes on React performance?"
 
 ---
 
-## Single-Chat Capture (Without Extension)
+## Monitoring
 
 ```bash
-curl -s http://localhost:8765/ingest \
-  -H "Content-Type: application/json" \
-  -d '{
-    "source": "chatgpt",
-    "url": "https://chat.openai.com/c/my-conv-id",
-    "captured_at": '"$(date +%s)"',
-    "messages": [
-      {"role": "user", "content": "How do I fix N+1 queries in Django?"},
-      {"role": "assistant", "content": "Use select_related() for FK and prefetch_related() for M2M..."}
-    ]
-  }'
+osctx logs             # status + live daemon log (Ctrl+C to stop)
+osctx status           # snapshot stats
+osctx status --watch   # refresh every 3s
+curl http://localhost:8765/status | python3 -m json.tool
 ```
 
-Check it worked:
-
+MCP server logs (Claude Desktop):
 ```bash
-curl -s http://localhost:8765/status | python3 -m json.tool
-osctx search "django queries"
+tail -f ~/Library/Logs/Claude/mcp-server-osctx.log
 ```
 
 ---
@@ -181,26 +209,25 @@ Everything lives in `~/.osctx/`:
 ```
 ~/.osctx/
 ├── memory.db       # SQLite + sqlite-vec (vectors + knowledge units)
-├── config.json     # API keys and settings (chmod 600)
+├── config.json     # API keys and settings
 ├── queue.json      # Persisted extraction queue (survives crashes)
 ├── daemon.log      # Daemon logs
 └── backups/        # Manual backups
 ```
 
-No cloud. No separate vector database process. No Redis. One file.
+No cloud. No separate vector database. No Redis. One file.
 
 ---
 
 ## Configuration
 
 ```bash
-osctx config --show                          # view all (keys redacted)
+osctx config --show
 osctx config --set extraction_backend=gemini
 osctx config --set search_result_limit=10
 ```
 
 Full config schema:
-
 ```json
 {
   "extraction_backend": "anthropic",
@@ -225,19 +252,19 @@ Full config schema:
 ## Development
 
 ```bash
-.venv/bin/pytest          # run tests (no API calls — all mocked)
+source .venv/bin/activate
+.venv/bin/pytest          # all tests (no API calls — all mocked)
 osctx doctor              # check environment
 ```
 
-Key docs for contributors:
-
-- [`docs/INTERFACES.md`](docs/INTERFACES.md) — exact public API of every module
-- [`docs/CONSTRAINTS.md`](docs/CONSTRAINTS.md) — hard rules (import graph, test rules, selector rules)
-- [`docs/DECISIONS.md`](docs/DECISIONS.md) — tech stack decisions, locked
-- [`docs/NEXT.md`](docs/NEXT.md) — prioritized next tasks with implementation detail
+Key docs:
+- [`docs/INTERFACES.md`](docs/INTERFACES.md) — public API of every module
 - [`docs/STATUS.md`](docs/STATUS.md) — what's built, what's not, known issues
+- [`docs/CONSTRAINTS.md`](docs/CONSTRAINTS.md) — hard rules (import graph, test rules)
+- [`docs/DECISIONS.md`](docs/DECISIONS.md) — tech stack decisions, locked
+- [`docs/NEXT.md`](docs/NEXT.md) — prioritized next tasks
 
-**Note for Homebrew Python users:** sqlite-vec requires `conn.enable_load_extension(True)` before loading. This is already handled in `database.py` but worth knowing if you see `not authorized` errors.
+**Note for Homebrew Python users:** `sqlite-vec` requires `conn.enable_load_extension(True)` before loading. Already handled in `database.py` — mention if you see `not authorized` errors.
 
 ---
 
@@ -248,4 +275,4 @@ Key docs for contributors:
 - **Notion AI** — requires you to manually save to Notion first
 - **Browser history** — can't search by meaning, no extraction
 
-OSCTX is local-first, works across all AI tools, extracts semantic knowledge (not raw transcripts), and takes zero manual effort after install.
+OSCTX is local-first, works across all AI tools, extracts semantic knowledge (not raw transcripts), and takes zero manual effort after setup.
