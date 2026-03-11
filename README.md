@@ -136,7 +136,9 @@ osctx logs
 **Browser UI** — open `http://localhost:8765/ui`:
 - **Search tab**: semantic + hybrid search with category/source filters
 - **Browse tab**: all units grouped by category (Decisions, Solutions, Facts…)
+- **Recent tab**: last 50 units by capture time — first thing to check after a capture
 - Click any card to copy as `<context>` XML. Shift+click or Cmd+click to multi-select.
+- Hover any card to reveal **✕** — deletes the unit permanently.
 
 **CLI:**
 ```bash

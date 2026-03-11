@@ -389,12 +389,14 @@ def _save_queue_to_disk() -> None     # called at daemon shutdown
 
 ### Endpoints
 ```
-POST   /ingest                      Body: IngestRequest        → 202 queued, 200 duplicate/ignored
-POST   /ingest/bulk                 Body: BulkIngestRequest    → 202 queued, 400 error
-GET    /search?q=&limit=5&hybrid=   Query params               → {"results": [...], "query": str}
-GET    /search/hybrid?q=&limit=5    Query params               → {"results": [...], "query": str}
-GET    /status                                                  → stats dict (see get_stats + queue_depth)
-GET    /ui                                                      → HTML (search.html)
+POST   /ingest                          Body: IngestRequest          → 202 queued, 200 duplicate/ignored
+POST   /ingest/bulk                     Body: BulkIngestRequest      → 202 queued, 400 error
+GET    /search?q=&limit=5&hybrid=       Query params                 → {"results": [...], "query": str}
+GET    /search/hybrid?q=&limit=5        Query params                 → {"results": [...], "query": str}
+GET    /status                                                        → stats dict (get_stats + queue_depth)
+GET    /units?category=&source=&limit=  Query params (all optional)  → {"units": [...], "total": int}
+DELETE /units/{unit_id}                 Path param                   → {"deleted": unit_id} | 404
+GET    /ui                                                            → HTML (search.html)
 ```
 
 ### Config loaded from `~/.osctx/config.json` at startup
