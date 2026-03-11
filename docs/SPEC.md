@@ -79,8 +79,8 @@
 | Platform | Primary selector | Fallback |
 |---|---|---|
 | ChatGPT | `[data-message-author-role]` | structural traversal |
-| Claude.ai | `[data-testid*="message"]` | `div.font-claude-message` |
-| Gemini | `.model-response-text`, `.user-query-text` | attribute preferred |
+| Claude.ai | `[data-test-render-count]` (turn wrapper) + `[data-is-streaming]` / `[data-testid="user-message"]` for role | `[data-message-index]` positional |
+| Gemini | `user-query`, `model-response` custom elements; strips "You said / Gemini said / Show thinking" prefixes | `[data-test-id]` attributes |
 
 **Rule:** Never use class-based selectors with random hashes. Always target semantic attributes.
 
@@ -139,7 +139,10 @@ GET  /ui                  — Serves the minimal search HTML
 └─────────────────────────────────────────────────────┘
 ```
 
-**On Enter:** Copies XML-wrapped content to clipboard, closes Raycast.
+**On Enter:** Opens detail view with full content + conversation summary + metadata.
+**Cmd+Enter:** Copies single result as XML `<context>` block to clipboard.
+**Cmd+D:** Toggles selection of current item. When ≥1 item selected, a floating "Copy N Selected" action appears at top of list.
+**Multi-copy:** Copies all selected items as N `<context>` blocks separated by blank lines.
 
 ---
 
@@ -156,7 +159,8 @@ CREATE TABLE conversations (
     title       TEXT,
     captured_at INTEGER NOT NULL,  -- unix timestamp
     raw_json    TEXT NOT NULL,     -- original messages array
-    status      TEXT DEFAULT 'pending'  -- 'pending', 'processing', 'done', 'failed'
+    status      TEXT DEFAULT 'pending',  -- 'pending', 'processing', 'done', 'failed'
+    summary     TEXT               -- LLM-generated 2-3 paragraph summary (populated post-extraction)
 );
 
 -- Extracted knowledge units (what gets searched)
@@ -164,7 +168,7 @@ CREATE TABLE knowledge_units (
     id              TEXT PRIMARY KEY,   -- UUID
     conversation_id TEXT REFERENCES conversations(id),
     content         TEXT NOT NULL,
-    category        TEXT,               -- 'decision', 'fact', 'code', 'preference', 'solution'
+    category        TEXT,               -- 'decision', 'fact', 'solution', 'code_pattern', 'preference', 'reference'
     topic_tags      TEXT,               -- JSON array: ["database", "postgresql"]
     source          TEXT NOT NULL,
     source_date     INTEGER,            -- unix timestamp
@@ -230,7 +234,7 @@ If nothing is worth extracting, return [].
 
 Each item:
 {
-  "content": "The specific knowledge unit, written as a standalone sentence",
+  "content": "1-3 sentences. For decisions/solutions, include reasoning (why, because, tradeoffs). Self-contained without the original conversation.",
   "category": "decision|fact|solution|code_pattern|preference|reference",
   "topic_tags": ["tag1", "tag2"],  // 1-4 specific topics
   "confidence": 0.0-1.0,
@@ -307,12 +311,20 @@ async def semantic_search(query: str, limit: int = 5) -> list[KnowledgeUnit]:
 
 ### Paste Format (XML-wrapped)
 
+Single result:
 ```xml
 <context source="ChatGPT" date="2025-11-03" topic="database, postgresql">
-PostgreSQL schema: users (uuid pk, email unique, created_at timestamp)
+## Conversation Summary
+We designed the Project X auth database, deciding on UUID primary keys for distributed-system compatibility and JSONB metadata columns for flexible schema evolution.
+
+## Matched Knowledge
+Chose UUID primary keys over auto-increment because the system needs to generate IDs across multiple services without a central coordinator.
 Decided during Project X database design session.
 </context>
 ```
+
+Multi-select (N results): N `<context>` blocks separated by blank lines.
+If no conversation summary: same structure but without the `## Conversation Summary` / `## Matched Knowledge` headers.
 
 ---
 
