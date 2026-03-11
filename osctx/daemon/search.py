@@ -129,6 +129,7 @@ def search(
             FROM knowledge_units ku
             JOIN knowledge_embeddings ke ON ke.unit_id = ku.id
             LEFT JOIN conversations c ON c.id = ku.conversation_id
+            WHERE ku.similar_to_id IS NULL
             ORDER BY distance ASC
             LIMIT ?
             """,

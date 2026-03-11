@@ -59,10 +59,17 @@ const CATEGORY_ICONS: Record<string, Icon> = {
 function toPasteFormat(r: SearchResult): string {
   const source = r.source.charAt(0).toUpperCase() + r.source.slice(1);
   const tags = r.topic_tags.join(", ");
-  let text = `<context source="${source}" date="${r.source_date ?? "unknown"}" topic="${tags}">\n${r.content}`;
-  if (r.context) text += `\nContext: ${r.context}`;
-  text += "\n</context>";
-  return text;
+  const lines: string[] = [`<context source="${source}" date="${r.source_date ?? "unknown"}" topic="${tags}">`];
+  if (r.conversation_summary) {
+    lines.push("## Conversation Summary");
+    lines.push(r.conversation_summary);
+    lines.push("");
+    lines.push("## Matched Knowledge");
+  }
+  lines.push(r.content);
+  if (r.context) lines.push(`Context: ${r.context}`);
+  lines.push("</context>");
+  return lines.join("\n");
 }
 
 function ResultDetail({ result }: { result: SearchResult }) {
@@ -111,7 +118,29 @@ function ResultDetail({ result }: { result: SearchResult }) {
       }
       actions={
         <ActionPanel>
-          <ResultActions result={result} />
+          <ActionPanel.Section title="Copy">
+            <Action
+              title="Copy as Context (with Summary)"
+              icon={Icon.Clipboard}
+              shortcut={{ modifiers: [], key: "return" }}
+              onAction={async () => {
+                await Clipboard.copy(toPasteFormat(result));
+                await showHUD("Context copied ✓");
+              }}
+            />
+            <Action
+              title="Copy Content Only"
+              icon={Icon.Text}
+              shortcut={{ modifiers: ["cmd"], key: "c" }}
+              onAction={async () => {
+                await Clipboard.copy(result.content);
+                await showHUD("Content copied ✓");
+              }}
+            />
+          </ActionPanel.Section>
+          <ActionPanel.Section>
+            <ResultActions result={result} />
+          </ActionPanel.Section>
         </ActionPanel>
       }
     />
@@ -121,10 +150,16 @@ function ResultDetail({ result }: { result: SearchResult }) {
 function ResultActions({ result }: { result: SearchResult }) {
   return (
     <>
+      <Action.Push
+        title="View Details & Copy"
+        icon={Icon.Eye}
+        shortcut={{ modifiers: [], key: "return" }}
+        target={<ResultDetail result={result} />}
+      />
       <Action
         title="Copy as Context"
         icon={Icon.Clipboard}
-        shortcut={{ modifiers: [], key: "return" }}
+        shortcut={{ modifiers: ["cmd"], key: "return" }}
         onAction={async () => {
           await Clipboard.copy(toPasteFormat(result));
           await showHUD("Context copied ✓");
@@ -138,12 +173,6 @@ function ResultActions({ result }: { result: SearchResult }) {
           await Clipboard.copy(result.content);
           await showHUD("Content copied ✓");
         }}
-      />
-      <Action.Push
-        title="View Details"
-        icon={Icon.Eye}
-        shortcut={{ modifiers: ["cmd"], key: "return" }}
-        target={<ResultDetail result={result} />}
       />
       {result.source_url && (
         <Action.OpenInBrowser
