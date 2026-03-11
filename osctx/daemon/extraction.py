@@ -515,5 +515,3 @@ async def summarize_conversation(
     except Exception as exc:
         logger.warning("Conversation summary failed: %s", exc)
         return ""
-
-    return unique

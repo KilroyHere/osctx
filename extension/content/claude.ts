@@ -8,31 +8,34 @@ const SOURCE = "claude" as const;
 function extractMessages(): Message[] {
   const messages: Message[] = [];
 
-  // User messages: data-testid="user-message" is stable
-  const userTurns = document.querySelectorAll<HTMLElement>('[data-testid="user-message"]');
-  // Assistant messages: wrapped in elements with data-testid starting with "message"
-  // that are NOT the user message — use the fieldset/article pattern
-  const allTurns = document.querySelectorAll<HTMLElement>(
-    '[data-testid="user-message"], [data-testid="ai-message"]'
-  );
+  // Each conversation turn is a direct child wrapper with data-test-render-count.
+  // Role detection:
+  //   user  → wrapper contains [data-testid="user-message"]
+  //   assistant → wrapper contains [data-is-streaming] (no user-message inside)
+  const turns = document.querySelectorAll<HTMLElement>("[data-test-render-count]");
 
-  if (allTurns.length > 0) {
-    for (const el of allTurns) {
-      const testId = el.getAttribute("data-testid") ?? "";
-      const role: "user" | "assistant" = testId === "user-message" ? "user" : "assistant";
-      const content = el.innerText.trim();
-      if (content.length > 0) messages.push({ role, content });
+  if (turns.length > 0) {
+    for (const el of turns) {
+      const isUser = !!el.querySelector('[data-testid="user-message"]');
+      const isAssistant = !!el.querySelector("[data-is-streaming]");
+      if (!isUser && !isAssistant) continue;
+
+      // For user turns, extract from the user-message child for clean text
+      const textEl = isUser
+        ? (el.querySelector<HTMLElement>('[data-testid="user-message"]') ?? el)
+        : el;
+
+      const content = textEl.innerText.trim();
+      if (content.length > 0) {
+        messages.push({ role: isUser ? "user" : "assistant", content });
+      }
     }
     return messages;
   }
 
-  // Fallback: conversation turns identified by aria roles
-  // Claude wraps each turn in a section/article with role="presentation" or similar
-  // Use positional inference: odd = user, even = assistant (if no data-testid available)
-  const turns = document.querySelectorAll<HTMLElement>(
-    '[data-test-render-count], [data-message-index]'
-  );
-  turns.forEach((el, i) => {
+  // Fallback: positional inference if neither selector matched
+  const allTurns = document.querySelectorAll<HTMLElement>("[data-message-index]");
+  allTurns.forEach((el, i) => {
     const content = el.innerText.trim();
     if (content.length > 0) {
       messages.push({ role: i % 2 === 0 ? "user" : "assistant", content });

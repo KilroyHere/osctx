@@ -13,14 +13,34 @@ Last updated: 2026-03-10
 | Data types | `parsers/base.py` | ✅ Done | `Message`, `Conversation` dataclasses |
 | ChatGPT parser | `parsers/chatgpt.py` | ✅ Done | Tree traversal, all edge cases from DATA_SAMPLE.md |
 | Gemini parser | `parsers/gemini.py` | ✅ Done | Takeout JSON, gmr: prefix variants |
-| Database layer | `database.py` | ✅ Done | sqlite-vec, all tables, CRUD |
+| Database layer | `database.py` | ✅ Done | sqlite-vec, all tables, CRUD + `conversations.summary` column |
 | Embeddings | `embeddings.py` | ✅ Done | e5-small-v2, lazy load, correct prefixes |
 | Deduplication | `dedup.py` | ✅ Done | Level 1 (URL delta) + Level 2 (cosine) |
-| Extraction | `extraction.py` | ✅ Done | Anthropic/OpenAI/Gemini/Ollama backends, chunking |
-| Search | `search.py` | ✅ Done | Semantic search working; hybrid BM25 scaffold present |
-| Ingestion queue | `ingestion.py` | ✅ Done | asyncio.Queue + disk persistence |
-| FastAPI daemon | `main.py` | ✅ Done | All 6 endpoints, lifespan management |
+| Extraction | `extraction.py` | ✅ Done | Anthropic/OpenAI/Gemini/Ollama backends, chunking, `summarize_conversation()` |
+| Search | `search.py` | ✅ Done | Semantic search; dedup filter (`similar_to_id IS NULL`); returns `conversation_summary` |
+| Ingestion queue | `ingestion.py` | ✅ Done | asyncio.Queue + disk persistence; stores conversation summary post-extraction |
+| FastAPI daemon | `main.py` | ✅ Done | All 6 endpoints, lifespan management; full config defaults including Gemini keys |
 | Search UI | `ui/search.html` | ✅ Done | Dark theme, keyboard nav, XML paste |
+
+### Browser Extension (Chrome MV3)
+
+| Component | File | Status | Notes |
+|---|---|---|---|
+| Manifest | `extension/manifest.json` | ✅ Done | MV3, host_permissions incl. localhost |
+| Background worker | `extension/background.ts` | ✅ Done | Cmd+Shift+S save, Cmd+Shift+M search, offline retry loop |
+| ChatGPT content script | `extension/content/chatgpt.ts` | ✅ Done | 3 capture triggers, attribute-based selectors |
+| Claude content script | `extension/content/claude.ts` | ✅ Done | `data-test-render-count` wrappers + `data-is-streaming` role detection — **live verified** |
+| Gemini content script | `extension/content/gemini.ts` | ✅ Done | `user-query`/`model-response` custom elements, strips "You said"/"Gemini said" prefixes — **live verified** |
+| Popup | `extension/popup.html + .ts` | ✅ Done | Dark theme, stats, daemon status dot |
+| Build | `extension/build.mjs` | ✅ Done | esbuild, bundles to `dist/` |
+
+### Raycast Extension
+
+| Component | File | Status | Notes |
+|---|---|---|---|
+| Search Memory command | `raycast-extension/src/search-memory.tsx` | ✅ Done | Category icons/colors, conversation summary in detail + paste |
+| Action flow | — | ✅ Done | Enter → detail view; Cmd+Enter → quick copy as XML context |
+| Paste format | `toPasteFormat()` | ✅ Done | XML `<context>` with summary + matched knowledge sections |
 
 ### CLI
 
@@ -39,19 +59,20 @@ Last updated: 2026-03-10
 | Test file | Status | Coverage |
 |---|---|---|
 | `tests/test_parsers.py` | ✅ Done | 15 tests, all chatgpt + gemini edge cases |
-| `tests/test_search.py` | ✅ Done | Search structure, dedup, to_paste, to_dict |
-| `tests/test_extraction.py` | ❌ Missing | LLM extraction with mocked backends |
+| `tests/test_search.py` | ✅ Done | Search structure, dedup, to_paste (with summary), to_dict |
+| `tests/test_extraction.py` | ✅ Done | LLM extraction with mocked backends (all 4), chunking, summarize_conversation |
 
 ---
 
 ## Verified End-to-End
 
 **Full pipeline test (2026-03-10):**
-- POST conversation to `/ingest`
-- Gemini `gemini-flash-latest` extracted 4 knowledge units
+- Chrome extension captured ChatGPT conversation via button click
+- Gemini `gemini-flash-latest` extracted 7 knowledge units + conversation summary
 - `intfloat/e5-small-v2` embedded all units
-- `/search?q=vector+similarity+distance` returned 4 ranked results (similarity scores 0.91–0.94)
-- `to_paste()` XML format correct
+- Raycast `Search Memory` returned results with similarity scores, conversation summary in detail pane
+- Copy as Context produced correct `<context>` XML with `## Conversation Summary` + `## Matched Knowledge` sections
+- Dedup filter confirmed: soft-duplicate units excluded from search results
 
 **Known working config:**
 ```json
@@ -68,28 +89,25 @@ Last updated: 2026-03-10
 
 | Component | Phase | Priority |
 |---|---|---|
-| Browser extension | Phase 1 | HIGH — closes capture loop |
-| Raycast extension | Phase 2 | HIGH — closes retrieval loop |
-| `tests/test_extraction.py` | Phase 3 | Medium |
-| `osctx install` real test | Phase 2 | Medium |
-| MCP server | Phase 5 | Low |
-| Claude export (no official API) | Phase 2 | Low |
-| Perplexity / Notion importers | Phase 6 | Future |
+| MCP server | Phase 5 | **HIGH** — enables Claude Desktop to query memory mid-conversation |
+| `osctx install` real test | — | Medium — launchd plist untested on real login cycle |
+| Hybrid search FTS5 table | Phase 6 | Low — scaffold exists, migration not yet written |
+| `extraction_on_battery` config key | — | Low — defined but ignored |
+| `osctx install` real test | — | Medium — launchd plist untested on fresh install |
 | Cross-device sync | Phase 6 | Future |
+| Perplexity / Notion importers | Phase 6 | Future |
 
 ---
 
 ## Known Issues / Tech Debt
 
-1. **`gemini_api_key` not in `main.py` DEFAULT_CONFIG** — `extraction.py` has it, `main.py` doesn't. When loading config, the key must come from `~/.osctx/config.json`, not the defaults in `main.py`. Works correctly in practice but inconsistent.
+1. **`osctx install` untested** — the launchd plist is written correctly but has not been tested through a full login cycle. The uvicorn command path resolution may need verification.
 
-2. **`osctx install` untested** — the launchd plist is written correctly but has not been tested through a full login cycle. The uvicorn command path resolution may need verification.
+2. **Hybrid search FTS5 table missing** — `search_hybrid()` falls back to pure semantic if FTS5 table missing. FTS5 table is never created — needs a migration in `database.py` before Phase 6 uses it.
 
-3. **Hybrid search untested** — `search_hybrid()` falls back to pure semantic if FTS5 table missing. FTS5 table is never created — needs a migration in `database.py` before Phase 6 uses it.
+3. **`extraction_on_battery` config key ignored** — defined in config schema, never read in code.
 
-4. **`extraction_on_battery` config key ignored** — defined in config schema, never read in code.
-
-5. **No automatic nightly backup** — defined in spec, not implemented.
+4. **`osctx install` untested on a fresh machine** — launchd plist path resolution not yet validated through a real login cycle on a machine where osctx was installed via `pip install`.
 
 ---
 

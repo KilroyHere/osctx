@@ -99,6 +99,9 @@ def upsert_conversation(
 def set_conversation_status(conn, conv_id: str, status: str) -> None
 # status: 'pending' | 'processing' | 'done' | 'failed'
 
+def update_conversation_summary(conn, conv_id: str, summary: str) -> None
+# Stores the LLM-generated summary for a conversation (UPDATE conversations SET summary=?)
+
 def get_pending_conversations(conn, limit: int = 50) -> list[sqlite3.Row]
 # Returns conversations WHERE status='pending' ORDER BY captured_at ASC
 ```
@@ -243,6 +246,16 @@ async def extract_from_messages(
 # Filters confidence < 0.7
 # Deduplicates by exact content within call
 # Returns [] if nothing worth extracting
+
+async def summarize_conversation(
+    messages: list[dict],
+    config: dict[str, Any] | None = None,
+) -> str
+# Generates a rich 2-3 paragraph summary of an entire conversation.
+# Captures: (1) core topic, (2) key conclusions/decisions, (3) nuances/caveats.
+# Truncates to 12,000 chars if needed (keeps first 4k + last 8k).
+# Never raises — returns "" on failure.
+# Uses same backend as extract_from_messages.
 ```
 
 ### Config keys read by extract_from_messages:
@@ -280,16 +293,24 @@ class SearchResult:
     similarity_score: float      # 0.0-1.0 (higher = more similar)
     context: str | None
     conversation_id: str | None
+    conversation_summary: str | None = None  # Full LLM-generated conversation summary
 
     def to_paste(self) -> str
-    # Returns:
-    # <context source="Chatgpt" date="2025-11-03" topic="database, postgresql">
-    # [content]
-    # [context if present]
-    # </context>
+    # Returns XML context block for pasting into AI chat.
+    # If conversation_summary present:
+    #   <context source="Chatgpt" date="2025-11-03" topic="database, postgresql">
+    #   ## Conversation Summary
+    #   [summary]
+    #
+    #   ## Matched Knowledge
+    #   [content]
+    #   [context if present]
+    #   </context>
+    # Without summary: same but without the Summary/Matched Knowledge headers.
 
     def to_dict(self) -> dict[str, Any]
     # All fields as JSON-serializable dict. similarity_score rounded to 4 decimals.
+    # Includes conversation_summary key.
 
 def search(
     query: str,
@@ -299,6 +320,8 @@ def search(
 ) -> list[SearchResult]
 # Pure semantic search. Results sorted by similarity descending.
 # Filters out results below score_threshold.
+# Excludes soft-duplicate units (WHERE similar_to_id IS NULL) — only canonical units shown.
+# Joins conversations table to populate source_url and conversation_summary.
 
 def search_hybrid(
     query: str,
@@ -416,7 +439,9 @@ enqueue_ingest()
         ▼ (background worker)
 _process_item()
   └─ upsert_conversation()          # store raw messages
-  └─ extract_from_messages()        # LLM → list[ExtractedUnit]
+  └─ extract_from_messages()        # LLM → list[ExtractedUnit] (delta only)
+  └─ summarize_conversation()       # LLM → full conversation summary (2-3 paragraphs)
+  └─ update_conversation_summary()  # store summary in conversations.summary
   └─ encode_batch()                 # embed all units at once
   └─ for each unit:
        └─ check_unit_dedup()        # Level 2 dedup

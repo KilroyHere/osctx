@@ -46,6 +46,8 @@ _DEFAULT_CONFIG: dict[str, Any] = {
     "extraction_backend": "anthropic",
     "anthropic_api_key": "",
     "openai_api_key": "",
+    "gemini_api_key": "",
+    "gemini_model": "gemini-flash-latest",
     "ollama_model": "llama3.2:3b",
     "ollama_base_url": "http://localhost:11434",
     "extraction_on_battery": False,
