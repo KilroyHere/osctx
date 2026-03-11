@@ -24,6 +24,7 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from .database import DB_PATH, OSCTX_DIR, get_stats, init_db, get_conn
 from .ingestion import (
@@ -132,6 +133,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="OSCTX Daemon", version="0.1.0", lifespan=lifespan)
+_UI_DIR = Path(__file__).parent / "ui"
+app.mount("/static", StaticFiles(directory=str(_UI_DIR)), name="static")
 
 # ---------------------------------------------------------------------------
 # Routes

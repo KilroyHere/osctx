@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="1.png" alt="OSCTX" width="120">
+</p>
+
 # OSCTX — Universal Memory for AI
 
 You talk to ChatGPT, Claude, and Gemini every day. Every insight, decision, and solution evaporates when you close the tab. OSCTX fixes that.
