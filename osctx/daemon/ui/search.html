@@ -209,6 +209,15 @@
       padding-top: 6px;
     }
     .check-icon { color: var(--green); font-size: 14px; margin-right: 4px; }
+    .card { position: relative; }
+    .delete-btn {
+      position: absolute; top: 8px; right: 8px;
+      background: none; border: none; color: var(--text3);
+      font-size: 13px; cursor: pointer; padding: 2px 5px; border-radius: 4px;
+      opacity: 0; transition: opacity .15s, color .15s;
+    }
+    .card:hover .delete-btn { opacity: 1; }
+    .delete-btn:hover { color: #ef5350; background: rgba(239,83,80,.1); }
 
     /* ── Browse grid header ── */
     .section-header {
@@ -302,6 +311,7 @@
   <input type="text" id="search-input" placeholder="Search memory… (/ to focus)" autocomplete="off">
   <button class="tab-btn active" id="tab-search" onclick="switchTab('search')">Search</button>
   <button class="tab-btn" id="tab-browse" onclick="switchTab('browse')">Browse</button>
+  <button class="tab-btn" id="tab-recent" onclick="switchTab('recent')">Recent</button>
   <span id="stats-pill">loading…</span>
 </div>
 
@@ -409,12 +419,16 @@
     mode = t;
     document.getElementById('tab-search').classList.toggle('active', t === 'search');
     document.getElementById('tab-browse').classList.toggle('active', t === 'browse');
+    document.getElementById('tab-recent').classList.toggle('active', t === 'recent');
     if (t === 'browse') { input.value = ''; renderBrowse(); }
+    else if (t === 'recent') { input.value = ''; renderRecent(); }
     else renderSearch();
   }
 
   function refresh() {
-    mode === 'search' ? renderSearch() : renderBrowse();
+    if (mode === 'search') renderSearch();
+    else if (mode === 'recent') renderRecent();
+    else renderBrowse();
   }
 
   // ── Stats ──
@@ -435,6 +449,25 @@
       }
       if (by.gemini)   document.getElementById('src-gemini').textContent = `Gemini (${by.gemini})`;
     } catch { statsPill.textContent = 'daemon offline'; }
+  }
+
+  // ── Recent (last 50 added) ──
+  async function renderRecent() {
+    try {
+      const resp = await fetch('/units?limit=50');
+      const data = await resp.json();
+      const items = data.units || [];
+      if (!items.length) {
+        content.innerHTML = '<div class="empty">No knowledge units yet</div>';
+        statusBar.textContent = '';
+        return;
+      }
+      content.innerHTML = items.map((r, i) => cardHtml(r, `r-${i}`)).join('');
+      statusBar.textContent = `${items.length} most recent unit${items.length !== 1 ? 's' : ''}`;
+      attachCardEvents();
+    } catch {
+      content.innerHTML = '<div class="empty">Failed to load — is the daemon running?</div>';
+    }
   }
 
   // ── Browse (all units) ──
@@ -530,6 +563,7 @@
           ${score ? `<span class="meta-score">${score}</span>` : ''}
         </div>
         ${r.context ? `<div class="card-context">${esc(r.context)}</div>` : ''}
+        <button class="delete-btn" title="Delete" onclick="deleteUnit(event, '${esc(r.id)}')">✕</button>
       </div>`;
   }
 
@@ -564,6 +598,22 @@
     } else {
       selectBar.classList.remove('visible');
     }
+  }
+
+  async function deleteUnit(e, id) {
+    e.stopPropagation();
+    if (!confirm('Delete this knowledge unit?')) return;
+    try {
+      const resp = await fetch(`/units/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      if (resp.ok) {
+        selected.delete(id);
+        // Remove from local caches so refresh shows correct data
+        browseItems = browseItems.filter(r => r.id !== id);
+        searchResults = searchResults.filter(r => r.id !== id);
+        await loadStats();
+        refresh();
+      }
+    } catch { alert('Delete failed — is the daemon running?'); }
   }
 
   function clearSelection() {

@@ -2,6 +2,7 @@
 
 export const DAEMON_URL = "http://localhost:8765";
 const PENDING_KEY = "osctx_pending";
+const POLL_DELAY_MS = 45_000;
 
 export interface Message {
   role: "user" | "assistant";
@@ -16,9 +17,26 @@ export interface IngestPayload {
   title?: string;
 }
 
+function notify(title: string, message: string): void {
+  chrome.notifications.create({
+    type: "basic",
+    iconUrl: chrome.runtime.getURL("icons/icon48.png"),
+    title,
+    message,
+  });
+}
+
 // POST to daemon. On failure, buffer to chrome.storage.local for retry.
+// Shows a notification on capture and a follow-up once extraction completes.
 export async function postToOsctx(payload: IngestPayload): Promise<void> {
   if (payload.messages.length === 0) return;
+
+  // Snapshot current units count so we can compute the delta later
+  let baselineUnits = 0;
+  try {
+    const s = await fetch(`${DAEMON_URL}/status`).then((r) => r.json());
+    baselineUnits = s.knowledge_units ?? 0;
+  } catch { /* daemon offline — will be caught below */ }
 
   try {
     const resp = await fetch(`${DAEMON_URL}/ingest`, {
@@ -26,9 +44,32 @@ export async function postToOsctx(payload: IngestPayload): Promise<void> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+
     if (resp.ok) {
       const data = await resp.json();
       console.log(`[OSCTX] ${data.status}`, data);
+
+      if (data.status === "queued") {
+        const source = payload.source.charAt(0).toUpperCase() + payload.source.slice(1);
+        notify(
+          "OSCTX: Capturing conversation",
+          `${data.new_messages} messages from ${source} queued for extraction`
+        );
+
+        // Poll once after extraction should be done
+        setTimeout(async () => {
+          try {
+            const s = await fetch(`${DAEMON_URL}/status`).then((r) => r.json());
+            const added = (s.knowledge_units ?? 0) - baselineUnits;
+            if (added > 0) {
+              notify(
+                `OSCTX: Saved ${added} knowledge unit${added !== 1 ? "s" : ""}`,
+                `From ${source}${payload.title ? ": " + payload.title : ""}`
+              );
+            }
+          } catch { /* daemon went offline during extraction */ }
+        }, POLL_DELAY_MS);
+      }
     }
   } catch {
     // Daemon not running — buffer for background worker retry

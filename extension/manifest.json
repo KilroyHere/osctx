@@ -3,7 +3,7 @@
   "name": "OSCTX",
   "version": "0.1.0",
   "description": "Capture AI conversations and make them searchable.",
-  "permissions": ["activeTab", "storage", "tabs"],
+  "permissions": ["activeTab", "storage", "tabs", "notifications"],
   "host_permissions": [
     "https://chat.openai.com/*",
     "https://chatgpt.com/*",

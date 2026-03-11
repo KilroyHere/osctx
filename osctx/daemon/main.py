@@ -232,6 +232,18 @@ async def units(
     return JSONResponse(content={"units": results, "total": len(results)})
 
 
+@app.delete("/units/{unit_id}")
+async def delete_unit(unit_id: str) -> JSONResponse:
+    """Delete a knowledge unit and its embedding by ID."""
+    with get_conn(DB_PATH) as conn:
+        row = conn.execute("SELECT id FROM knowledge_units WHERE id = ?", (unit_id,)).fetchone()
+        if not row:
+            return JSONResponse(content={"error": "not found"}, status_code=404)
+        conn.execute("DELETE FROM knowledge_embeddings WHERE unit_id = ?", (unit_id,))
+        conn.execute("DELETE FROM knowledge_units WHERE id = ?", (unit_id,))
+    return JSONResponse(content={"deleted": unit_id})
+
+
 @app.get("/ui", response_class=HTMLResponse)
 async def ui() -> HTMLResponse:
     """Serve the minimal search UI."""
