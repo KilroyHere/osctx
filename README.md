@@ -22,7 +22,7 @@ Claude Desktop (MCP)  ←──────────────────�
 
 Three components:
 
-1. **Capture** — Chrome extension monitors ChatGPT, Claude.ai, and Gemini. Triggers on tab close, 5-minute inactivity, or `Cmd+Shift+S`. Buffers offline.
+1. **Capture** — Chrome extension monitors ChatGPT, Claude.ai, and Gemini. Trigger manually with `Cmd+Shift+S` or the popup button. Buffers offline and retries every 60s.
 2. **Brain** — FastAPI daemon on port 8765. Extracts knowledge units via LLM (Anthropic/Gemini/OpenAI/Ollama), embeds with `intfloat/e5-small-v2`, stores in a single SQLite file with `sqlite-vec`.
 3. **Retrieval** — Raycast extension, `localhost:8765/ui` browser UI, or Claude Desktop MCP tools.
 
@@ -89,9 +89,8 @@ osctx doctor        # dependency check
 - Navigate to any ChatGPT, Claude.ai, or Gemini conversation
 - Click the extension icon → click **Capture** to send the conversation to the daemon
 - Or press `Cmd+Shift+S` anywhere on the page
-- The extension also auto-captures on tab close after 5+ messages
 
-The daemon must be running (step 3) to receive captures. If offline, captures are buffered and retried.
+The daemon must be running (step 3) to receive captures. If offline, captures are buffered in the extension and retried every 60s.
 
 ### 5 — Raycast extension (optional)
 
