@@ -26,14 +26,14 @@ Three components:
 
 The LLM reads your conversations and pulls out:
 
-- **decisions** — "Use UUIDs, not auto-increment, for SaaS user IDs"
-- **facts** — "PostgreSQL JSONB outperforms EAV tables for sparse attributes"
-- **solutions** — "Fixed N+1 with `select_related('author__profile')`"
+- **decisions** — "Chose UUIDs over auto-increment because the system generates IDs across multiple services without a central coordinator, avoiding tight coupling on a single sequence generator."
+- **facts** — "PostgreSQL JSONB outperforms EAV tables for sparse attributes because JSONB uses a binary format with indexable keys, while EAV requires a JOIN per attribute."
+- **solutions** — "Fixed N+1 with `select_related('author__profile')` — without it, Django issues one query per object in the loop; select_related collapses them into a single JOIN."
 - **code_patterns** — reusable snippets and idioms
 - **preferences** — your stated tool/language/library preferences
 - **references** — papers, docs, links worth keeping
 
-Each unit gets a confidence score, topic tags, and a one-sentence context note. Low-confidence units (< 0.7) are discarded. Near-duplicates (cosine similarity > 0.97) are skipped.
+Each unit is 1–3 self-contained sentences including the reasoning — not bare facts. Units get a confidence score, topic tags, and a one-sentence context note. Low-confidence units (< 0.7) are discarded. Near-duplicates (cosine similarity > 0.97) are skipped.
 
 ---
 
