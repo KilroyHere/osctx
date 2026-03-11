@@ -220,6 +220,21 @@ async def _process_item(item: dict[str, Any], config: dict[str, Any]) -> None:
                 status="processing",
             )
 
+        # Respect extraction_on_battery setting (macOS only)
+        if not config.get("extraction_on_battery", False):
+            try:
+                import subprocess
+                result = subprocess.run(
+                    ["pmset", "-g", "batt"], capture_output=True, text=True, timeout=2
+                )
+                if "Battery Power" in result.stdout:
+                    logger.info("On battery power, deferring extraction for %s", conv_id[:8])
+                    with get_conn(db_path) as conn:
+                        set_conversation_status(conn, conv_id, "pending")
+                    return
+            except Exception:
+                pass  # pmset unavailable (Linux/CI) — proceed normally
+
         # Extract knowledge units from delta messages only
         units = await extract_from_messages(delta_messages, config=config)
         logger.info("Extracted %d units from conv %s", len(units), conv_id[:8])

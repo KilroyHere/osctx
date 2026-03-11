@@ -85,6 +85,19 @@ CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_embeddings USING vec0(
 );
 """
 
+_FTS_TABLE = """
+CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_fts
+USING fts5(content, topic_tags, tokenize='porter ascii');
+"""
+
+_FTS_TRIGGER = """
+CREATE TRIGGER IF NOT EXISTS knowledge_fts_insert
+AFTER INSERT ON knowledge_units BEGIN
+    INSERT INTO knowledge_fts(rowid, content, topic_tags)
+    VALUES (new.rowid, new.content, new.topic_tags);
+END;
+"""
+
 
 # ---------------------------------------------------------------------------
 # Connection management
@@ -108,11 +121,18 @@ def init_db(db_path: Path = DB_PATH) -> None:
     with _connect(db_path) as conn:
         conn.executescript(_SCHEMA)
         conn.executescript(_EMBEDDINGS_TABLE)
+        conn.executescript(_FTS_TABLE)
+        conn.executescript(_FTS_TRIGGER)
         # Migrations for existing databases
         try:
             conn.execute("ALTER TABLE conversations ADD COLUMN summary TEXT")
         except sqlite3.OperationalError:
             pass  # Column already exists
+        # Populate FTS from any existing rows (idempotent via INSERT OR IGNORE)
+        conn.execute("""
+            INSERT OR IGNORE INTO knowledge_fts(rowid, content, topic_tags)
+            SELECT rowid, content, topic_tags FROM knowledge_units
+        """)
         conn.commit()
 
 
